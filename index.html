@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="uk">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CRM Пчеловод</title>
+    <title>CRM Бджоляр</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
 
@@ -16,6 +16,7 @@
         input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         button { width: 100%; padding: 12px; background: #ffca28; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; }
         .btn-secondary { background: #eee; color: #333; }
+        .btn-small { padding: 6px 10px; font-size: 12px; width: auto; margin-top: 5px; }
         .btn-danger { background: #ff5252; color: white; padding: 8px; width: auto; }
         
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 100; justify-content: center; align-items: flex-start; overflow-y: auto; padding: 20px 0; }
@@ -23,92 +24,87 @@
         .item-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
         .fab { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; border-radius: 50%; background: #ffca28; border: none; font-size: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 50; }
         
-        /* Стили для умных подсказок (автокомплит) */
         .autocomplete-wrapper { position: relative; width: 100%; }
         .suggestions-box { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto; z-index: 1000; display: none; }
         .suggestion-item { padding: 10px 15px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 14px; }
-        .suggestion-item:last-child { border-bottom: none; }
-        .suggestion-item:hover { background: #f0f0f0; }
+        .delivery-toggle { display: flex; gap: 10px; margin: 10px 0; }
+        .status-box { background: #e8f5e9; padding: 8px; border-radius: 6px; font-size: 12px; margin-top: 10px; border-left: 4px solid #4caf50; }
     </style>
 </head>
 <body>
 
 <div id="loginScreen" style="max-width: 400px; margin: 100px auto; text-align: center; padding: 20px;">
-    <h2>Вход в CRM</h2>
+    <h2>Вхід у CRM</h2>
     <input type="text" id="phoneInput" placeholder="Номер: +380...">
     <input type="password" id="passwordInput" placeholder="Пароль">
-    <button id="authBtn">Войти</button>
+    <button id="authBtn">Увійти</button>
 </div>
 
 <div id="mainApp" style="display: none;">
     <header>
         <div>🍯 <b>Бджоляр</b></div>
         <div style="display: flex; align-items: center; gap: 10px;">
-            <div class="user-info"><span id="displayUserName">Загрузка...</span><br><a href="#" id="logoutBtn" style="color: #666; font-size: 10px;">Выйти</a></div>
+            <div class="user-info"><span id="displayUserName">Завантаження...</span><br><a href="#" id="logoutBtn" style="color: #666; font-size: 10px;">Вийти</a></div>
             <button id="openSettingsBtn" style="background: none; border: none; font-size: 20px; padding: 5px; width: auto;">⚙️</button>
         </div>
     </header>
 
     <main>
-        <input type="text" id="universalSearch" placeholder="Поиск (Имя, телефон, ТТН)...">
+        <input type="text" id="universalSearch" placeholder="Пошук (Ім'я, телефон, ТТН)...">
         <div id="appContent"></div>
     </main>
     <button id="fabBtn" class="fab">+</button>
 </div>
 
+<div id="ttnModal" class="modal" style="align-items: center;">
+    <div class="modal-content">
+        <h3>Додати ТТН</h3>
+        <input type="text" id="ttnInput" placeholder="Введіть номер накладної...">
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button id="closeTtnBtn" class="btn-secondary">Скасувати</button>
+            <button id="saveTtnBtn">Зберегти</button>
+        </div>
+    </div>
+</div>
+
 <div id="settingsModal" class="modal">
     <div class="modal-content">
-        <h3>Настройки</h3>
-        <label style="font-size: 12px; font-weight: bold; color: #666;">Ключ Новой Почты (API)</label>
-        <input type="text" id="npKeyInput" placeholder="Вставьте ключ НП...">
+        <h3>Налаштування (Ключі API)</h3>
+        <label style="font-size: 12px; color: #666;">Нова Пошта (API Key) - для статусів</label>
+        <input type="text" id="npKeyInput" placeholder="Встав ключ НП...">
         
-        <label style="font-size: 12px; font-weight: bold; color: #666; display: block; margin-top: 15px;">Мои товары</label>
+        <label style="font-size: 12px; color: #666; display: block; margin-top: 10px;">Укрпошта (Bearer Token) - для статусів</label>
+        <input type="text" id="upBearerInput" placeholder="Bearer...">
+        
+        <label style="font-size: 12px; font-weight: bold; color: #666; display: block; margin-top: 15px;">Мої товари (Пресет)</label>
         <div id="presetsList"></div>
-        <button id="addPresetBtn" class="btn-secondary" style="margin-top: 10px;">+ Добавить товар</button>
+        <button id="addPresetBtn" class="btn-secondary" style="margin-top: 10px;">+ Додати товар</button>
         <hr>
-        <button id="saveSettingsBtn">Сохранить</button>
-        <button id="closeSettingsBtn" class="btn-secondary" style="margin-top: 10px;">Закрыть</button>
+        <button id="saveSettingsBtn">Зберегти налаштування</button>
+        <button id="closeSettingsBtn" class="btn-secondary" style="margin-top: 10px;">Закрити</button>
     </div>
 </div>
 
 <div id="orderModal" class="modal">
     <div class="modal-content" style="padding-bottom: 50px;">
-        <h3 style="margin-top:0">Новый заказ</h3>
-        
-        <div class="autocomplete-wrapper">
-            <input type="text" id="newPhone" placeholder="Телефон (можно последние 4 цифры)" autocomplete="off">
-            <div id="phoneSuggestions" class="suggestions-box"></div>
+        <h3 style="margin-top:0">Нове замовлення</h3>
+        <div class="autocomplete-wrapper"><input type="text" id="newPhone" placeholder="Телефон" autocomplete="off"><div id="phoneSuggestions" class="suggestions-box"></div></div>
+        <div class="autocomplete-wrapper"><input type="text" id="newName" placeholder="Ім'я Прізвище" autocomplete="off"><div id="nameSuggestions" class="suggestions-box"></div></div>
+        <div class="delivery-toggle">
+            <label><input type="radio" name="deliveryType" value="ukrposhta" checked> Укрпошта</label>
+            <label><input type="radio" name="deliveryType" value="novaposhta"> Нова Пошта</label>
         </div>
-        
-        <div class="autocomplete-wrapper">
-            <input type="text" id="newName" placeholder="Имя Фамилия" autocomplete="off">
-            <div id="nameSuggestions" class="suggestions-box"></div>
-        </div>
-
-        <div class="autocomplete-wrapper">
-            <input type="text" id="newCity" placeholder="Город (начните вводить...)" autocomplete="off">
-            <div id="citySuggestions" class="suggestions-box"></div>
-        </div>
-
-        <div class="autocomplete-wrapper">
-            <input type="text" id="newBranch" placeholder="Отделение почты..." autocomplete="off">
-            <div id="branchSuggestions" class="suggestions-box"></div>
-        </div>
-
-        <div id="itemsContainer" style="margin-top: 15px;">
-            <div style="font-weight: bold; margin-bottom: 5px;">Товары:</div>
-        </div>
-        <button id="addItemBtn" class="btn-secondary" style="font-size: 14px; margin-bottom: 15px;">+ Добавить позицию</button>
-        
-        <input type="text" id="newComment" placeholder="Комментарий к заказу">
-        
+        <div class="autocomplete-wrapper"><input type="text" id="newCity" placeholder="Місто (почніть вводити...)" autocomplete="off"><div id="citySuggestions" class="suggestions-box"></div></div>
+        <div class="autocomplete-wrapper"><input type="text" id="newBranch" placeholder="Відділення або індекс..." autocomplete="off"><div id="branchSuggestions" class="suggestions-box"></div></div>
+        <div id="itemsContainer" style="margin-top: 15px;"></div>
+        <button id="addItemBtn" class="btn-secondary" style="font-size: 14px; margin-bottom: 15px;">+ Додати позицію</button>
+        <input type="text" id="newComment" placeholder="Коментар">
         <div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; margin: 15px 0;">
-            <span>Итого:</span><span id="orderTotal">0 грн</span>
+            <span>Разом:</span><span id="orderTotal">0 грн</span>
         </div>
-
         <div style="display: flex; gap: 10px;">
-            <button id="closeOrderBtn" class="btn-secondary">Отмена</button>
-            <button id="saveOrderBtn">Создать заказ</button>
+            <button id="closeOrderBtn" class="btn-secondary">Скасувати</button>
+            <button id="saveOrderBtn">Створити замовлення</button>
         </div>
     </div>
 </div>
