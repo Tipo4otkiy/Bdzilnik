@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CRM Пчеловод</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <style>
+        body { font-family: -apple-system, sans-serif; margin: 0; background: #f4f4f9; }
+        header { background: #ffca28; padding: 15px; text-align: center; font-weight: bold; position: sticky; top: 0; z-index: 10; }
+        main { padding: 15px; }
+        .card { background: white; padding: 15px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 12px; background: #ffca28; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; }
+        .search-bar { padding-left: 35px; background: white url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="gray" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>') no-repeat 10px center; }
+        #loginScreen { max-width: 400px; margin: 50px auto; text-align: center; padding: 20px; }
+        .timeline { border-left: 2px solid #ffca28; margin: 10px 0; padding-left: 15px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div id="loginScreen">
+    <h2 id="authTitle">Вход в CRM</h2>
+    <input type="text" id="phoneInput" placeholder="Номер телефона: +380...">
+    <input type="password" id="passwordInput" placeholder="Пароль">
+    <button id="authBtn">Войти</button>
+    <p id="authError" style="color: red; display: none;"></p>
+    <p style="margin-top: 20px; color: #666;">
+        <span id="toggleText">Нет аккаунта?</span> 
+        <a href="#" id="toggleMode" style="color: #ffca28; font-weight: bold; text-decoration: none;">Создать</a>
+    </p>
+</div>
+
+<div id="mainApp" style="display: none;">
+    <header>🍯 CRM Пчеловод</header>
+    <main>
+        <input type="text" id="universalSearch" class="search-bar" placeholder="Поиск по имени, номеру, ТТН...">
+        <div id="appContent">
+            <p style="text-align: center; color: #888;">Загрузка замовлень...</p>
+        </div>
+    </main>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

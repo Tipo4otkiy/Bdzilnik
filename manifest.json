@@ -1,0 +1,9 @@
+{
+  "name": "CRM Пчеловод",
+  "short_name": "Пчеловод",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f4f4f9",
+  "theme_color": "#ffca28",
+  "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+}
