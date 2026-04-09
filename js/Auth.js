@@ -19,7 +19,12 @@ export class AuthManager {
 
             if (!phone || !pass) return alert("Введіть дані для входу");
 
-            const email = phone.replace(/\D/g, '') + "@crm.com"; 
+            // Витягуємо чисті цифри, прибираємо код країни 380
+            let digits = phone.replace(/\D/g, '');
+            if (digits.startsWith('380')) digits = digits.substring(3);
+
+            // Email будується з 10 цифр (починаються з 0)
+            const email = digits + "@crm.com";
 
             btn.innerText = "Вхід...";
             btn.disabled = true;
@@ -27,6 +32,7 @@ export class AuthManager {
             try { 
                 await signInWithEmailAndPassword(this.core.auth, email, pass); 
             } catch(e) { 
+                console.error("Login error:", e.code, email);
                 alert("Помилка входу. Перевірте номер та пароль.");
             } finally {
                 btn.innerText = "Увійти";
@@ -38,7 +44,6 @@ export class AuthManager {
             e.preventDefault();
             if (confirm("Вийти з системи?")) {
                 await signOut(this.core.auth);
-                // ЖЕСТКАЯ ПЕРЕЗАГРУЗКА: стирает память браузера от предыдущего аккаунта
                 window.location.reload(); 
             }
         });
@@ -51,7 +56,7 @@ export class AuthManager {
             if (user) {
                 this.core.currentUser = user;
                 
-                // ЖЕСТКИЙ СБРОС РОЛИ И ПАНЕЛИ ПО УМОЛЧАНИЮ
+                // Скидаємо роль і панель за замовчуванням
                 this.core.userRole = 'seller';
                 if (adminPanel) adminPanel.style.display = 'none';
 

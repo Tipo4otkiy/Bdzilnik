@@ -28,8 +28,9 @@ export class AdminManager {
         });
 
         document.getElementById('adminSellersList').addEventListener('click', (e) => {
-            if (e.target.classList.contains('seller-chip')) {
-                this.currentSellerFilter = e.target.dataset.id;
+            const chip = e.target.closest('.seller-chip');
+            if (chip) {
+                this.currentSellerFilter = chip.dataset.id;
                 this.renderSellersList(); 
                 this.core.orderList.render(); 
             }
@@ -39,13 +40,11 @@ export class AdminManager {
     async init() {
         const adminPanel = document.getElementById('adminPanel');
         
-        // ПРЕДОХРАНИТЕЛЬ: если не админ, глушим модуль и скрываем панель
         if (this.core.userRole !== 'admin') {
             if (adminPanel) adminPanel.style.display = 'none';
             return;
         }
         
-        // Включаем панель только если проверка пройдена
         if (adminPanel) adminPanel.style.display = 'block';
         await this.loadSellers();
     }
@@ -75,7 +74,7 @@ export class AdminManager {
 
         container.innerHTML = this.sellers.map(s => `
             <div class="seller-chip ${this.currentSellerFilter === s.id ? 'active' : ''}" data-id="${s.id}">
-                👤 ${s.name} <span style="font-size:11px; opacity:0.7; pointer-events:none;">${s.phone}</span>
+                👤 ${s.name} <span style="font-size:11px; opacity:0.7; pointer-events:none;">${s.phone || ''}</span>
             </div>
         `).join('');
     }
@@ -89,9 +88,13 @@ export class AdminManager {
         if (!name || !phone || !pass) return alert("Заповніть всі поля для реєстрації!");
         if (pass.length < 6) return alert("Пароль має бути мінімум 6 символів!");
 
-        let cleanPhone = phone.replace(/\D/g, '');
-        if (cleanPhone.startsWith('38')) cleanPhone = cleanPhone.substring(2);
-        const email = cleanPhone + "@crm.com";
+        // Витягуємо чисті 10 цифр (починаються з 0) — так само як в Auth.js
+        let digits = phone.replace(/\D/g, '');
+        if (digits.startsWith('380')) digits = digits.substring(3);
+
+        if (digits.length !== 10) return alert("Введіть коректний номер (10 цифр, починається з 0)!");
+
+        const email = digits + "@crm.com";
 
         btn.innerText = "⏳..."; btn.disabled = true;
 
@@ -107,7 +110,7 @@ export class AdminManager {
 
             await signOut(this.adminAuth);
 
-            alert(`Продавця ${name} успішно створено!`);
+            alert(`Продавця ${name} успішно створено!\nЛогін: ${phone}\nПароль: ${pass}`);
             
             document.getElementById('adminNewName').value = '';
             document.getElementById('adminNewPhone').value = '';
@@ -116,7 +119,11 @@ export class AdminManager {
             await this.loadSellers(); 
         } catch (e) {
             console.error(e);
-            alert("Помилка реєстрації. Можливо, такий номер вже існує.");
+            if (e.code === 'auth/email-already-in-use') {
+                alert("Помилка: продавець з таким номером вже існує!");
+            } else {
+                alert("Помилка реєстрації: " + e.message);
+            }
         } finally {
             btn.innerText = "Створити"; btn.disabled = false;
         }
