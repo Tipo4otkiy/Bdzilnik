@@ -36,7 +36,8 @@ export class OrderList {
             }
             if (action === 'add-ttn') {
                 this.currentOrderIdForTtn = id;
-                document.getElementById('ttnInput').value = '';
+                // Беремо існуючу ТТН з атрибута кнопки (якщо вона там є)
+                document.getElementById('ttnInput').value = btn.dataset.ttn || '';
                 document.getElementById('ttnModal').style.display = 'flex';
             }
             if (action === 'complete') {
@@ -159,9 +160,12 @@ export class OrderList {
 
                     ${o.ttn
                         ? `<div class="status-box">
-                               <div style="font-size:13px; font-weight:bold; margin-bottom:5px;">ТТН: ${o.ttn}</div>
-                               <div id="status-${o.id}" style="font-size:13px; color:#888;">⏳ Завантаження статусу...</div>
-                           </div>`
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:5px;">
+                                <div style="font-size:13px; font-weight:bold; word-break: break-all;">ТТН: ${o.ttn}</div>
+                                <button class="btn-secondary btn-small" data-action="add-ttn" data-id="${o.id}" data-ttn="${o.ttn}" style="margin:0 0 0 10px; padding:4px 8px; font-size:11px; flex-shrink:0;">✏️ Змінити</button>
+                            </div>
+                            <div id="status-${o.id}" style="font-size:13px; color:#888; margin-top:5px;">⏳ Завантаження статусу...</div>
+                        </div>`
                         : `<button class="btn-secondary btn-small" data-action="add-ttn" data-id="${o.id}" style="margin-top:10px; width:100%; padding:10px;">+ Додати ТТН</button>`
                     }
 
