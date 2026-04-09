@@ -6,37 +6,36 @@ import { BlacklistManager } from './js/Blacklist.js';
 import { LocationManager } from './js/Location.js';
 import { OrderForm } from './js/OrderForm.js';
 import { OrderList } from './js/OrderList.js';
+import { AdminManager } from './js/Admin.js'; // Підключаємо Адміна
 
 class CRMApp {
     constructor() {
         this.db = db;
         this.auth = auth;
         
-        // Глобальний стан
         this.currentUser = null;
         this.userRole = 'seller';
+        this.userName = ''; 
         this.presets = [];
         this.clients = [];
         this.blacklistData = [];
 
-        // Ініціалізація модулів
         this.settings = new SettingsManager(this);
         this.blacklist = new BlacklistManager(this);
         this.location = new LocationManager();
         this.orderForm = new OrderForm(this);
         this.orderList = new OrderList(this);
+        this.admin = new AdminManager(this); // Ініціалізуємо модуль Адміна
         
-        // Авторизація стартує останньою
         this.authManager = new AuthManager(this);
     }
 
-    // БРОНЬОВАНИЙ ЗАПУСК (Гарантує, що замовлення відмалюються завжди)
     async startApp() {
         try { await this.settings.load(); } catch(e) { console.warn("Settings skip", e); }
         try { await this.loadClients(); } catch(e) { console.warn("Clients skip", e); }
         try { await this.blacklist.load(); } catch(e) { console.warn("Blacklist skip", e); }
+        try { await this.admin.init(); } catch(e) { console.warn("Admin init skip", e); } // Запускаємо адмінку
         
-        // Рендер замовлень спрацює у будь-якому випадку
         try { this.orderList.render(); } catch(e) { console.error("Помилка рендеру замовлень", e); }
     }
 
@@ -46,5 +45,4 @@ class CRMApp {
     }
 }
 
-// Запуск
 new CRMApp();

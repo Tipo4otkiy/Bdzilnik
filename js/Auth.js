@@ -10,7 +10,6 @@ export class AuthManager {
     }
 
     bindEvents() {
-        // Подключаем маску к полю номера телефона на экране логина
         setupPhoneMask('phoneInput');
 
         document.getElementById('authBtn').addEventListener('click', async () => {
@@ -18,62 +17,73 @@ export class AuthManager {
             const phone = document.getElementById('phoneInput').value.trim();
             const pass = document.getElementById('passwordInput').value.trim();
 
-            if (!phone || !pass) return alert("Введите данные для входа");
+            if (!phone || !pass) return alert("Введіть дані для входу");
 
-            btn.innerText = "Вход...";
+            const email = phone.replace(/\D/g, '') + "@crm.com"; 
+
+            btn.innerText = "Вхід...";
             btn.disabled = true;
 
             try { 
-                // Используем формат email для Firebase Auth
-                await signInWithEmailAndPassword(this.core.auth, phone + "@crm.com", pass); 
+                await signInWithEmailAndPassword(this.core.auth, email, pass); 
             } catch(e) { 
-                alert("Ошибка входа. Проверьте номер и пароль.");
-                console.error(e);
+                alert("Помилка входу. Перевірте номер та пароль.");
             } finally {
-                btn.innerText = "Войти";
+                btn.innerText = "Увійти";
                 btn.disabled = false;
             }
         });
 
-        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+        document.getElementById('logoutBtn').addEventListener('click', async (e) => {
             e.preventDefault();
-            if (confirm("Выйти из системы?")) signOut(this.core.auth);
+            if (confirm("Вийти з системи?")) {
+                await signOut(this.core.auth);
+                // ЖЕСТКАЯ ПЕРЕЗАГРУЗКА: стирает память браузера от предыдущего аккаунта
+                window.location.reload(); 
+            }
         });
     }
 
     init() {
         onAuthStateChanged(this.core.auth, async (user) => {
+            const adminPanel = document.getElementById('adminPanel');
+
             if (user) {
                 this.core.currentUser = user;
-                // Отображаем имя пользователя (номер без домена)
-                document.getElementById('displayUserName').innerText = user.email.split('@')[0];
+                
+                // ЖЕСТКИЙ СБРОС РОЛИ И ПАНЕЛИ ПО УМОЛЧАНИЮ
+                this.core.userRole = 'seller';
+                if (adminPanel) adminPanel.style.display = 'none';
+
+                let displayName = user.email.split('@')[0]; 
                 
                 try {
-                    // Проверка роли пользователя в коллекции "users"
                     const userDoc = await getDoc(doc(this.core.db, "users", user.uid));
                     if (userDoc.exists()) {
-                        this.core.userRole = userDoc.data().role || 'seller';
-                        // Показываем админ-панель, если роль соответствует
-                        if (this.core.userRole === 'admin') {
-                            const adminPanel = document.getElementById('adminPanel');
-                            if (adminPanel) adminPanel.style.display = 'block';
-                        }
+                        const data = userDoc.data();
+                        this.core.userRole = data.role || 'seller';
+                        this.core.userName = data.name || displayName;
+                        displayName = this.core.userName; 
+                    } else {
+                        this.core.userName = displayName;
                     }
                 } catch (e) { 
-                    console.warn("Документ пользователя не найден, установлена роль по умолчанию"); 
+                    this.core.userName = displayName;
                 }
 
-                // Переход к основному интерфейсу
+                document.getElementById('displayUserName').innerText = displayName;
+                
                 document.getElementById('loginScreen').style.display = 'none';
                 document.getElementById('mainApp').style.display = 'block';
                 
-                // Запуск загрузки данных в главном классе
                 await this.core.startApp();
             } else {
-                // Возврат к экрану входа
                 document.getElementById('loginScreen').style.display = 'block';
                 document.getElementById('mainApp').style.display = 'none';
+                if (adminPanel) adminPanel.style.display = 'none';
                 this.core.currentUser = null;
+                this.core.userName = '';
+                this.core.userRole = 'seller';
             }
         });
     }

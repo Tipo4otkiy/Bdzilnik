@@ -52,7 +52,6 @@ export class OrderList {
             this.render();
         };
         
-        document.getElementById('adminToggleView').addEventListener('change', () => this.render());
         document.getElementById('calcStatBtn').addEventListener('click', () => this.calculateAnalytics());
     }
 
@@ -65,9 +64,18 @@ export class OrderList {
 
     async render(filter = "") {
         try {
-            let q = (this.core.userRole === 'admin' && document.getElementById('adminToggleView').checked) 
-                ? query(collection(this.core.db, "orders")) 
-                : query(collection(this.core.db, "orders"), where("sellerId", "==", this.core.currentUser.uid));
+            let q;
+            // ЛОГІКА АДМІНА (Фільтр по обраному продавцю або всі)
+            if (this.core.userRole === 'admin') {
+                if (this.core.admin && this.core.admin.currentSellerFilter) {
+                    q = query(collection(this.core.db, "orders"), where("sellerId", "==", this.core.admin.currentSellerFilter));
+                } else {
+                    q = query(collection(this.core.db, "orders")); // Всі замовлення бази
+                }
+            } else {
+                // Звичайний продавець бачить тільки свої
+                q = query(collection(this.core.db, "orders"), where("sellerId", "==", this.core.currentUser.uid));
+            }
             
             const snap = await getDocs(q);
             let list = []; snap.forEach(d => list.push({ id: d.id, ...d.data() }));
@@ -157,7 +165,6 @@ export class OrderList {
             return;
         }
 
-        // КРАСИВЫЙ СПОЙЛЕР ДЛЯ ДОХОДА
         let html = `
         <details style="margin-bottom: 15px; background: #fafafa; padding: 12px; border-radius: 8px; border: 1px solid #ddd; cursor: pointer;">
             <summary style="font-size: 16px; font-weight: bold; color: #2e7d32; outline: none;">

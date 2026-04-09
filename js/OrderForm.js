@@ -10,7 +10,6 @@ export class OrderForm {
         this.bindEvents();
         this.setupAutocomplete();
         
-        // Подключаем маску к полю создания заказа
         setupPhoneMask('newPhone');
     }
 
@@ -45,17 +44,35 @@ export class OrderForm {
         const setup = (inpId, boxId, field, fillLogic) => {
             const input = document.getElementById(inpId); const box = document.getElementById(boxId);
             input.addEventListener('input', () => {
-                const val = input.value.toLowerCase().trim().replace(/\D/g, ''); // Ищем по чистым цифрам
+                let val = input.value.toLowerCase().trim();
+                
+                // ИСПРАВЛЕНИЕ: Если это телефон, очищаем от маски и кода 38 для поиска
+                if (field === 'phone') {
+                    val = val.replace(/\D/g, '');
+                    if (val.startsWith('38')) val = val.substring(2);
+                }
+
                 box.innerHTML = '';
                 if (val.length < 2) { box.style.display = 'none'; return; }
                 
-                // Фильтруем игнорируя скобки и пробелы в базе
-                const matches = this.core.clients.filter(c => c[field].replace(/\D/g, '').includes(val)).slice(0, 5);
+                const matches = this.core.clients.filter(c => {
+                    if (field === 'phone') {
+                        let clientPhone = c.phone.replace(/\D/g, '');
+                        if (clientPhone.startsWith('38')) clientPhone = clientPhone.substring(2);
+                        return clientPhone.includes(val);
+                    } else {
+                        return c[field].toLowerCase().includes(val);
+                    }
+                }).slice(0, 5);
                 
                 if (matches.length > 0) {
                     box.style.display = 'block';
                     matches.forEach(m => {
-                        const isBl = this.core.blacklistData.some(b => b.phone === m.phone);
+                        // Проверяем, есть ли клиент в ЧС (тоже по чистым 10 цифрам)
+                        let cp = m.phone.replace(/\D/g, '');
+                        if (cp.startsWith('38')) cp = cp.substring(2);
+                        const isBl = this.core.blacklistData.some(b => b.cleanPhone === cp);
+                        
                         const div = document.createElement('div'); div.className = 'suggestion-item'; 
                         div.innerHTML = `${isBl ? '<span style="color:red; font-weight:bold;">[ЧС]</span> ' : ''}<b>${m.name}</b> <span style="color:#666">(${m.phone})</span>`;
                         div.onclick = () => { fillLogic(m); box.style.display = 'none'; this.core.blacklist.checkWarning(m.phone); }; 
@@ -65,6 +82,7 @@ export class OrderForm {
             });
             document.addEventListener('click', (e) => { if(e.target !== input) box.style.display = 'none'; });
         };
+        
         setup('newPhone', 'phoneSuggestions', 'phone', (m) => { document.getElementById('newPhone').value = m.phone; document.getElementById('newName').value = m.name; });
         setup('newName', 'nameSuggestions', 'name', (m) => { document.getElementById('newPhone').value = m.phone; document.getElementById('newName').value = m.name; });
     }
@@ -74,7 +92,6 @@ export class OrderForm {
         document.getElementById('orderModalTitle').innerText = id ? "Редагування замовлення" : "Нове замовлення";
         document.getElementById('blacklistWarning').style.display = 'none';
         
-        // При открытии старые номера тоже красиво форматируем
         document.getElementById('newPhone').value = formatPhoneString(data?.customerPhone || '');
         document.getElementById('newName').value = data?.customerName || '';
         document.getElementById('newCity').value = data?.city || '';
@@ -175,7 +192,11 @@ export class OrderForm {
                 await addDoc(collection(this.core.db, "orders"), orderData); 
             }
             
-            await setDoc(doc(this.core.db, "clients", phone), { name }, { merge: true });
+            // ИСПРАВЛЕНИЕ: ID клиента в базе всегда чистые 10 цифр
+            let cleanPhone = phone.replace(/\D/g, '');
+            if (cleanPhone.startsWith('38')) cleanPhone = cleanPhone.substring(2);
+            await setDoc(doc(this.core.db, "clients", cleanPhone), { name: name, phone: phone }, { merge: true });
+            
             await this.core.loadClients();
             this.modal.style.display = 'none'; 
             
@@ -184,6 +205,7 @@ export class OrderForm {
             this.core.orderList.render();
         } catch (err) { 
             alert(err.message || "Помилка збереження"); 
+            console.error(err);
         } finally {
             btn.innerText = "Зберегти"; btn.disabled = false;
         }

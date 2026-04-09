@@ -45,19 +45,25 @@
         .header-btn { background: none; border: none; font-size: 18px; padding: 5px 8px; border-radius: 6px; cursor: pointer; }
         .header-btn:hover { background: rgba(255,255,255,0.3); }
 
-        /* Вкладки */
         .tabs { display: flex; background: white; margin-bottom: 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .tab-btn { flex: 1; background: none; border: none; padding: 12px; font-weight: bold; color: #888; border-radius: 0; }
         .tab-btn.active { color: #333; background: #ffca28; }
+        
+        /* Кнопки продавців в Адмінці */
+        .seller-chip { background: #eee; padding: 8px 12px; border-radius: 20px; font-size: 14px; cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
+        .seller-chip.active { background: #fffde7; border-color: #ffca28; color: #f57f17; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div id="loginScreen" style="max-width: 400px; margin: 100px auto; text-align: center; padding: 20px;">
-    <h2>Вхід у CRM</h2>
-    <input type="text" id="phoneInput" placeholder="Номер: +380...">
-    <input type="password" id="passwordInput" placeholder="Пароль">
-    <button id="authBtn">Увійти</button>
+<div id="loginScreen" style="max-width: 400px; margin: 80px auto; padding: 20px; background: white; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+    <div style="text-align: center; margin-bottom: 20px;">
+        <span style="font-size: 40px;">🍯</span>
+        <h2 style="margin: 10px 0 0 0;">Вхід у CRM</h2>
+    </div>
+    <input type="text" id="phoneInput" placeholder="📞 Номер телефону" style="background: #f9f9f9;">
+    <input type="password" id="passwordInput" placeholder="🔒 Пароль" style="background: #f9f9f9;">
+    <button id="authBtn" style="margin-top: 10px; padding: 15px;">Увійти</button>
 </div>
 
 <div id="mainApp" style="display: none;">
@@ -73,8 +79,25 @@
                 <button id="openSettingsBtn" class="header-btn" title="Налаштування">⚙️</button>
             </div>
         </div>
-        <div id="adminPanel" style="display: none; margin-top: 10px; font-size: 14px; background: rgba(255,255,255,0.5); padding: 5px; border-radius: 5px;">
-            <label><input type="checkbox" id="adminToggleView"> 👑 Показати всі замовлення</label>
+        
+        <div id="adminPanel" style="display: none; margin-top: 15px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 10px 0; color: #333;">👑 Панель Адміністратора</h3>
+            
+            <div style="background: #f9f9f9; padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #eee;">
+                <h4 style="margin: 0 0 10px 0; font-size: 14px;">➕ Створити продавця</h4>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <input type="text" id="adminNewName" placeholder="Ім'я" style="flex: 1; min-width: 100px; margin:0; padding: 8px;">
+                    <input type="text" id="adminNewPhone" placeholder="Телефон" style="flex: 1.5; min-width: 140px; margin:0; padding: 8px;">
+                    <input type="text" id="adminNewPass" placeholder="Пароль" style="flex: 1; min-width: 100px; margin:0; padding: 8px;">
+                    <button id="adminRegBtn" class="btn-danger" style="flex: 1; min-width: 100px; margin:0; padding: 8px;">Створити</button>
+                </div>
+            </div>
+
+            <h4 style="margin: 0 0 10px 0; font-size: 14px;">👥 Фільтр по продавцях:</h4>
+            <div id="adminSellersList" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+                </div>
+            
+            <button id="adminShowAllBtn" class="btn-secondary btn-small" style="padding: 8px 15px; background: #e0e0e0;">🌍 Показати всі замовлення</button>
         </div>
     </header>
 
@@ -84,7 +107,7 @@
             <button id="tabHistoryBtn" class="tab-btn">🕰️ Історія</button>
         </div>
 
-        <input type="text" id="universalSearch" placeholder="🔍 Пошук (Ім'я, телефон, ТТН)...">
+        <input type="text" id="universalSearch" placeholder="🔍 Пошук (Ім'я, телефон, ТТН)..." style="background: white;">
 
         <div id="historyAnalytics" style="display: none; background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
             <h4 style="margin-top: 0; color: #333;">📊 Статистика продажів</h4>

@@ -1,16 +1,21 @@
 export function formatPhoneString(value) {
     if (!value) return '';
-    let input = value.toString().replace(/\D/g, ''); // Оставляем только цифры
-    
+    let input = value.toString().replace(/\D/g, ''); 
     if (input === '') return '';
     
-    // Если пользователь начал вводить с 38, убираем, чтобы не было дублей
-    if (input.startsWith('38')) input = input.substring(2);
+    // Якщо вставили міжнародний 380..., прибираємо 380 для зручності бази
+    if (input.startsWith('380')) {
+        input = input.substring(2);
+    }
+
+    // РОЗУМНА ЛОГІКА: Якщо номер не починається з 0, значить це шматок номера для пошуку.
+    // Просто повертаємо цифри без жорсткої маски +38 (...)
+    if (!input.startsWith('0') && input.length < 10) {
+        return input; 
+    }
     
-    // Ограничиваем длину 10 цифрами (стандарт Украины без 38)
     input = input.substring(0, 10);
     
-    // Собираем красивую строку
     let formatted = '+38 ';
     if (input.length > 0) formatted += '(' + input.substring(0, 3);
     if (input.length > 3) formatted += ') ' + input.substring(3, 6);
@@ -25,7 +30,6 @@ export function setupPhoneMask(inputId) {
     if (!el) return;
     
     el.addEventListener('input', (e) => {
-        // Если пользователь стирает и остался только префикс, очищаем поле полностью
         if (e.inputType === 'deleteContentBackward' && e.target.value.length < 5) {
             e.target.value = '';
             return;
