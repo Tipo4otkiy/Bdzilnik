@@ -51,37 +51,41 @@ export class AuthManager {
 
     init() {
         onAuthStateChanged(this.core.auth, async (user) => {
-            const adminPanel = document.getElementById('adminPanel');
+    const adminPanel = document.getElementById('adminPanel');
 
-            if (user) {
-                this.core.currentUser = user;
-                
-                // Скидаємо роль і панель за замовчуванням
-                this.core.userRole = 'seller';
-                if (adminPanel) adminPanel.style.display = 'none';
+    if (user) {
+        this.core.currentUser = user;
+        this.core.userRole = 'seller';
 
-                let displayName = user.email.split('@')[0]; 
-                
-                try {
-                    const userDoc = await getDoc(doc(this.core.db, "users", user.uid));
-                    if (userDoc.exists()) {
-                        const data = userDoc.data();
-                        this.core.userRole = data.role || 'seller';
-                        this.core.userName = data.name || displayName;
-                        displayName = this.core.userName; 
-                    } else {
-                        this.core.userName = displayName;
-                    }
-                } catch (e) { 
-                    this.core.userName = displayName;
-                }
+        let displayName = user.email.split('@')[0]; 
+        
+        try {
+            const userDoc = await getDoc(doc(this.core.db, "users", user.uid));
+            if (userDoc.exists()) {
+                const data = userDoc.data();
+                this.core.userRole = data.role || 'seller';
+                this.core.userName = data.name || displayName;
+                displayName = this.core.userName; 
+            } else {
+                // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ:
+                // Если документа в Firestore нет — профиль был удален админом.
+                // Принудительно выходим из системы.
+                console.warn("Доступ запрещен: профиль пользователя удален из базы.");
+                alert("Ваш аккаунт был удален администратором.");
+                await signOut(this.core.auth);
+                return; // Прекращаем выполнение, сработает блок else (user null)
+            }
+        } catch (e) { 
+            // В случае ошибки сети или прав доступа тоже лучше не пускать дальше
+            console.error("Ошибка проверки профиля:", e);
+            await signOut(this.core.auth);
+            return;
+        }
 
-                document.getElementById('displayUserName').innerText = displayName;
-                
-                document.getElementById('loginScreen').style.display = 'none';
-                document.getElementById('mainApp').style.display = 'block';
-                
-                await this.core.startApp();
+        document.getElementById('displayUserName').innerText = displayName;
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'block';
+        await this.core.startApp();
             } else {
                 document.getElementById('loginScreen').style.display = 'block';
                 document.getElementById('mainApp').style.display = 'none';

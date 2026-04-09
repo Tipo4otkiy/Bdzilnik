@@ -83,23 +83,38 @@
         </div>
         
         <div id="adminPanel" style="display: none; margin-top: 15px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-            <h3 style="margin: 0 0 10px 0; color: #333;">👑 Панель Адміністратора</h3>
-            
-            <div style="background: #f9f9f9; padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #eee;">
-                <h4 style="margin: 0 0 10px 0; font-size: 14px;">➕ Створити продавця</h4>
-                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                    <input type="text" id="adminNewName" placeholder="Ім'я" autocomplete="off" style="flex: 1; min-width: 100px; margin:0; padding: 8px;">
-                    <input type="text" id="adminNewPhone" placeholder="Телефон (0671234455)" inputmode="numeric" autocomplete="off" style="flex: 1.5; min-width: 140px; margin:0; padding: 8px;">
-                    <input type="text" id="adminNewPass" placeholder="Пароль" autocomplete="new-password" style="flex: 1; min-width: 100px; margin:0; padding: 8px;">
-                    <button id="adminRegBtn" class="btn-danger" style="flex: 1; min-width: 100px; margin:0; padding: 8px;">Створити</button>
-                </div>
+            <div id="adminPanelHeader" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;">
+                <h3 style="margin: 0; color: #333;">👑 Панель Адміністратора</h3>
+                <span id="adminToggleIcon" style="background: #f4f4f9; padding: 5px 10px; border-radius: 8px; font-size: 13px; font-weight: bold; color: #666; border: 1px solid #ddd; transition: 0.2s;">🔽 Розгорнути</span>
             </div>
-
-            <h4 style="margin: 0 0 10px 0; font-size: 14px;">👥 Фільтр по продавцях:</h4>
-            <div id="adminSellersList" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
-                </div>
             
-            <button id="adminShowAllBtn" class="btn-secondary btn-small" style="padding: 8px 15px; background: #e0e0e0;">🌍 Показати всі замовлення</button>
+            <div id="adminPanelContent" style="display: none; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">
+                
+                <div style="background: #f9f9f9; padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #eee;">
+                    <h4 style="margin: 0 0 10px 0; font-size: 14px;">➕ Створити продавця</h4>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <input type="text" id="adminNewName" placeholder="Ім'я" autocomplete="off" style="flex: 1; min-width: 100px; margin:0; padding: 8px;">
+                        <input type="text" id="adminNewPhone" placeholder="Телефон (0671234455)" inputmode="numeric" autocomplete="off" style="flex: 1.5; min-width: 140px; margin:0; padding: 8px;">
+                        <input type="text" id="adminNewPass" placeholder="Пароль" autocomplete="new-password" style="flex: 1; min-width: 100px; margin:0; padding: 8px;">
+                        <button id="adminRegBtn" class="btn-danger" style="flex: 1; min-width: 100px; margin:0; padding: 8px;">Створити</button>
+                    </div>
+                </div>
+
+                <h4 style="margin: 0 0 10px 0; font-size: 14px;">👥 Фільтр по продавцях:</h4>
+                <div id="adminSellersList" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;"></div>
+                
+                <h4 style="margin: 20px 0 10px 0; font-size: 14px;">🔄 Перенесення історії (зміна пароля)</h4>
+                <div style="background: #fff3e0; padding: 12px; border-radius: 8px; border: 1px solid #ffe0b2; margin-bottom: 15px;">
+                    <p style="font-size: 11px; color: #e65100; margin: 0 0 10px 0;">Якщо ви перестворили акаунт продавця (скинули пароль), виберіть старий та новий профілі, щоб перенести історію продажів на новий акаунт.</p>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <select id="transferFrom" style="flex: 1; min-width: 120px; margin:0; padding: 8px; border: 1px solid #ffcc80;"><option value="">Від кого (старий)</option></select>
+                        <select id="transferTo" style="flex: 1; min-width: 120px; margin:0; padding: 8px; border: 1px solid #ffcc80;"><option value="">Кому (новий)</option></select>
+                        <button id="adminTransferBtn" style="flex: 0.5; min-width: 90px; margin:0; padding: 8px; background: #fb8c00; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Перенести</button>
+                    </div>
+                </div>
+
+                <button id="adminShowAllBtn" class="btn-secondary btn-small" style="padding: 10px 15px; background: #e0e0e0; width: 100%; font-size: 14px;">🌍 Показати всі замовлення</button>
+            </div>
         </div>
     </header>
 

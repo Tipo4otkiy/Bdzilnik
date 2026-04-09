@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { collection, getDocs, setDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { collection, getDocs, setDoc, doc, updateDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase.js";
 import { setupPhoneMask } from "./Utils.js";
 
@@ -17,6 +17,25 @@ export class AdminManager {
     }
 
     bindEvents() {
+
+        const adminHeader = document.getElementById('adminPanelHeader');
+        const adminContent = document.getElementById('adminPanelContent');
+        const adminIcon = document.getElementById('adminToggleIcon');
+
+        if (adminHeader) {
+            adminHeader.addEventListener('click', () => {
+                if (adminContent.style.display === 'none') {
+                    adminContent.style.display = 'block';
+                    adminIcon.innerHTML = '🔼 Згорнути';
+                    adminIcon.style.background = '#e0e0e0';
+                } else {
+                    adminContent.style.display = 'none';
+                    adminIcon.innerHTML = '🔽 Розгорнути';
+                    adminIcon.style.background = '#f4f4f9';
+                }
+            });
+        }
+        
         setupPhoneMask('adminNewPhone');
 
         document.getElementById('adminRegBtn').addEventListener('click', () => this.registerSeller());
@@ -35,6 +54,12 @@ export class AdminManager {
                 this.core.orderList.render(); 
             }
         });
+
+        // Біндимо кнопку перенесення
+        const transferBtn = document.getElementById('adminTransferBtn');
+        if (transferBtn) {
+            transferBtn.addEventListener('click', () => this.transferOrders());
+        }
     }
 
     async init() {
@@ -60,6 +85,7 @@ export class AdminManager {
                 }
             });
             this.renderSellersList();
+            this.updateTransferSelects(); // Оновлюємо випадаючі списки перенесення
         } catch (e) {
             console.error("Помилка завантаження продавців:", e);
         }
@@ -79,6 +105,71 @@ export class AdminManager {
         `).join('');
     }
 
+    updateTransferSelects() {
+        const fromSel = document.getElementById('transferFrom');
+        const toSel = document.getElementById('transferTo');
+        if (!fromSel || !toSel) return;
+
+        let options = '';
+        this.sellers.forEach(s => {
+            // Додаємо шматочок ID, щоб легко відрізнити старий акаунт від нового
+            options += `<option value="${s.id}">${s.name} (${s.phone}) [ID:${s.id.substring(0,4)}]</option>`;
+        });
+
+        fromSel.innerHTML = '<option value="">Від кого (старий)...</option>' + options;
+        toSel.innerHTML = '<option value="">Кому (новий)...</option>' + options;
+    }
+
+    async transferOrders() {
+        const oldId = document.getElementById('transferFrom').value;
+        const newId = document.getElementById('transferTo').value;
+
+        if (!oldId || !newId) return alert("Оберіть обох продавців зі списку!");
+        if (oldId === newId) return alert("Не можна перенести замовлення на того ж самого продавця!");
+
+        if (!confirm("Увага! Всі замовлення старого профілю будуть закріплені за новим.\n\nПродовжити?")) return;
+
+        const btn = document.getElementById('adminTransferBtn');
+        btn.innerText = "⏳..."; btn.disabled = true;
+
+        try {
+            // 1. Шукаємо всі замовлення старого продавця
+            const q = query(collection(this.core.db, "orders"), where("sellerId", "==", oldId));
+            const snap = await getDocs(q);
+
+            if (snap.empty) {
+                alert("У старого продавця немає замовлень для перенесення.");
+            } else {
+                // 2. Перезаписуємо sellerId у кожному замовленні
+                let count = 0;
+                const promises = [];
+                snap.forEach(d => {
+                    promises.push(updateDoc(doc(this.core.db, "orders", d.id), { sellerId: newId }));
+                    count++;
+                });
+
+                await Promise.all(promises);
+                alert(`Успіх! Перенесено замовлень: ${count}`);
+            }
+
+            // 3. Підчищаємо базу від старого "привида"
+            if (confirm("Видалити старий профіль продавця з бази?\n(Рекомендується, щоб він більше не дублювався у списках)")) {
+                await deleteDoc(doc(this.core.db, "users", oldId));
+                await this.loadSellers();
+            }
+
+            document.getElementById('transferFrom').value = '';
+            document.getElementById('transferTo').value = '';
+            this.core.orderList.render(); 
+
+        } catch (e) {
+            console.error(e);
+            alert("Помилка перенесення: " + e.message);
+        } finally {
+            btn.innerText = "Перенести"; btn.disabled = false;
+        }
+    }
+
     async registerSeller() {
         const name = document.getElementById('adminNewName').value.trim();
         const phone = document.getElementById('adminNewPhone').value.trim();
@@ -88,7 +179,6 @@ export class AdminManager {
         if (!name || !phone || !pass) return alert("Заповніть всі поля для реєстрації!");
         if (pass.length < 6) return alert("Пароль має бути мінімум 6 символів!");
 
-        // Витягуємо чисті 10 цифр (починаються з 0) — так само як в Auth.js
         let digits = phone.replace(/\D/g, '');
         if (digits.startsWith('380')) digits = digits.substring(3);
 

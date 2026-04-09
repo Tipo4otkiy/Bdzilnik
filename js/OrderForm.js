@@ -175,6 +175,12 @@ export class OrderForm {
         btn.innerText = "⏳..."; btn.disabled = true;
 
         try {
+            // Проверяем, существует ли еще профиль текущего пользователя
+            const userCheck = await getDoc(doc(this.core.db, "users", this.core.currentUser.uid));
+            if (!userCheck.exists()) {
+                throw new Error("Ошибка доступа: ваш профиль удален. Пожалуйста, войдите заново.");
+            }
+
             const phone = document.getElementById('newPhone').value.trim();
             const name = document.getElementById('newName').value.trim();
             if (!phone || !name) throw new Error("Заповніть телефон та ім'я!");
@@ -230,8 +236,10 @@ export class OrderForm {
             this.core.orderList.updateTabUI();
             this.core.orderList.render();
         } catch (err) {
-            alert(err.message || "Помилка збереження");
-            console.error(err);
+        alert(err.message || "Ошибка сохранения");
+        if (err.message.includes("профиль удален")) {
+            window.location.reload(); // Перезагружаем, чтобы Auth.js выкинул на логин
+        }
         } finally {
             btn.innerText = "Зберегти"; btn.disabled = false;
         }
