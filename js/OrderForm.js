@@ -1,7 +1,6 @@
 import { collection, addDoc, doc, setDoc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { setupPhoneMask, formatPhoneString } from "./Utils.js";
 
-
 export class OrderForm {
     constructor(core) {
         this.core = core;
@@ -24,8 +23,8 @@ export class OrderForm {
                 if (e.target.classList.contains('i-name')) {
                     const f = this.core.presets.find(p => p.name === e.target.value);
                     if (f) {
-                        e.target.closest('div').querySelector('.i-price').value = f.price;
-                        if (f.currency) e.target.closest('div').querySelector('.i-currency').value = f.currency;
+                        e.target.closest('.item-row-wrapper').querySelector('.i-price').value = f.price;
+                        if (f.currency) e.target.closest('.item-row-wrapper').querySelector('.i-currency').value = f.currency;
                     }
                 }
                 this.calcTotal();
@@ -37,13 +36,20 @@ export class OrderForm {
 
         this.container.addEventListener('click', (e) => {
             if (e.target.classList.contains('btn-danger')) {
-                e.target.closest('div').remove();
+                e.target.closest('.item-row-wrapper').remove();
                 this.calcTotal();
             }
         });
 
         document.getElementById('newPhone').addEventListener('input', (e) => {
             this.core.blacklist.checkWarning(e.target.value);
+        });
+
+        // ГЛОБАЛЬНИЙ ЗАХИСТ: Ховаємо кастомні підказки товарів при кліку в будь-яке інше місце
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.item-autocomplete')) {
+                document.querySelectorAll('.preset-suggestions').forEach(box => box.style.display = 'none');
+            }
         });
     }
 
@@ -134,12 +140,17 @@ export class OrderForm {
         this.modal.style.display = 'flex';
     }
 
+    // НОВИЙ МЕТОД З КАСТОМНИМ ВИПАДАЮЧИМ СПИСКОМ ТОВАРІВ
     addItemRow(name = "", qty = 1, price = "", currency = "₴") {
         const r = document.createElement('div');
+        r.className = 'item-row-wrapper';
         r.style.cssText = 'display: flex; gap: 6px; align-items: center; margin-bottom: 10px; width: 100%;';
+        
         r.innerHTML = `
-            <input type="text" list="presetData" placeholder="Товар" class="i-name" value="${name}" style="flex: 2; min-width: 0; margin: 0;">
-            <datalist id="presetData">${this.core.presets.map(p => `<option value="${p.name}"></option>`).join('')}</datalist>
+            <div class="item-autocomplete" style="position: relative; flex: 2; min-width: 0; margin: 0;">
+                <input type="text" placeholder="Товар" class="i-name" value="${name}" autocomplete="off" style="margin: 0; width: 100%; box-sizing: border-box;">
+                <div class="suggestions-box preset-suggestions" style="display:none; position: absolute; top: calc(100% + 2px); max-height: 200px; overflow-y: auto; width: 100%; z-index: 1001; text-align: left;"></div>
+            </div>
             <input type="number" placeholder="К-во" class="i-qty" value="${qty}" min="1" style="flex: 0.6; min-width: 0; margin: 0;">
             <input type="number" placeholder="Ціна" class="i-price" value="${price}" min="0" style="flex: 1; min-width: 0; margin: 0;">
             <select class="i-currency" style="flex: 0 0 52px; padding: 10px 4px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; background: #fff; margin: 0; height: 46px;">
@@ -147,14 +158,63 @@ export class OrderForm {
                 <option value="$" ${currency === '$' ? 'selected' : ''}>$</option>
             </select>
             <button type="button" class="btn-danger" title="Видалити" style="flex: 0 0 40px; width: 40px; height: 46px; padding: 0; margin: 0; display: flex; align-items: center; justify-content: center; font-size: 16px;">✕</button>`;
+            
         this.container.appendChild(r);
+
+        const nameInput = r.querySelector('.i-name');
+        const suggBox = r.querySelector('.preset-suggestions');
+        const priceInput = r.querySelector('.i-price');
+        const currencyInput = r.querySelector('.i-currency');
+
+        // Функція відображення списку пресетів
+        const showSuggestions = () => {
+            // Ховаємо всі інші відкриті списки товарів (якщо їх декілька)
+            document.querySelectorAll('.preset-suggestions').forEach(box => {
+                if (box !== suggBox) box.style.display = 'none';
+            });
+
+            const val = nameInput.value.toLowerCase().trim();
+            suggBox.innerHTML = '';
+
+            // Показуємо всі пресети, якщо поле порожнє, інакше шукаємо збіги
+            const matches = val === '' 
+                ? this.core.presets 
+                : this.core.presets.filter(p => p.name.toLowerCase().includes(val));
+
+            if (matches.length > 0) {
+                suggBox.style.display = 'block';
+                matches.forEach(m => {
+                    const div = document.createElement('div');
+                    div.className = 'suggestion-item';
+                    div.innerHTML = `<div style="display:flex; justify-content:space-between; width:100%;"><b>${m.name}</b> <span style="color:#666; font-size:13px; font-weight:normal;">${m.price} ${m.currency || '₴'}</span></div>`;
+                    
+                    // Використовуємо onmousedown, щоб клік зарахувався ДО того, як інпут втратить фокус
+                    div.onmousedown = (e) => {
+                        e.preventDefault(); 
+                        nameInput.value = m.name;
+                        priceInput.value = m.price;
+                        if (m.currency) currencyInput.value = m.currency;
+                        suggBox.style.display = 'none';
+                        this.calcTotal(); // Оновлюємо загальну суму
+                    };
+                    suggBox.appendChild(div);
+                });
+            } else {
+                suggBox.style.display = 'none';
+            }
+        };
+
+        // Запускаємо логіку при введенні тексту та при кліку(фокусі) на порожнє поле
+        nameInput.addEventListener('input', showSuggestions);
+        nameInput.addEventListener('focus', showSuggestions);
+
         this.calcTotal();
     }
 
     calcTotal() {
         let uah = 0, usd = 0;
         this.container.querySelectorAll('.i-qty').forEach(qtyInput => {
-            const row = qtyInput.closest('div');
+            const row = qtyInput.closest('.item-row-wrapper');
             const qty = parseFloat(qtyInput.value) || 0;
             const price = parseFloat(row.querySelector('.i-price').value) || 0;
             const cur = row.querySelector('.i-currency')?.value || '₴';
@@ -176,10 +236,10 @@ export class OrderForm {
         btn.innerText = "⏳..."; btn.disabled = true;
 
         try {
-            // Проверяем, существует ли еще профиль текущего пользователя
+            // Перевіряємо профіль, щоб унеможливити створення замовлення видаленим продавцем
             const userCheck = await getDoc(doc(this.core.db, "users", this.core.currentUser.uid));
             if (!userCheck.exists()) {
-                throw new Error("Ошибка доступа: ваш профиль удален. Пожалуйста, войдите заново.");
+                throw new Error("Помилка доступу: ваш профіль було видалено.");
             }
 
             const phone = document.getElementById('newPhone').value.trim();
@@ -188,7 +248,7 @@ export class OrderForm {
 
             const items = [];
             this.container.querySelectorAll('.i-name').forEach(nameInput => {
-                const row = nameInput.closest('div');
+                const row = nameInput.closest('.item-row-wrapper');
                 const n = nameInput.value.trim();
                 if (n) items.push({
                     name: n,
@@ -237,10 +297,10 @@ export class OrderForm {
             this.core.orderList.updateTabUI();
             this.core.orderList.render();
         } catch (err) {
-        alert(err.message || "Ошибка сохранения");
-        if (err.message.includes("профиль удален")) {
-            window.location.reload(); // Перезагружаем, чтобы Auth.js выкинул на логин
-        }
+            alert(err.message || "Помилка збереження");
+            if (err.message.includes("профіль було видалено")) {
+                window.location.reload(); 
+            }
         } finally {
             btn.innerText = "Зберегти"; btn.disabled = false;
         }
