@@ -4,6 +4,9 @@ export class LocationManager {
         this.branchDebounce = null;
         this.indexDebounce = null;
         this.currentCityRef = "";
+        
+        // Встав сюди свій ключ Нової Пошти, якщо він є. Якщо ні - залишай порожнім.
+        this.apiKey = ""; 
         this.bindEvents();
     }
 
@@ -32,7 +35,7 @@ export class LocationManager {
         document.getElementById('newCity').addEventListener('input', (e) => this.searchCity(e.target.value));
         document.getElementById('newBranch').addEventListener('input', (e) => this.searchBranch(e.target.value));
         
-        // Автопошук міста по індексу Укрпошти
+        // Автопошук міста по індексу
         document.getElementById('newIndex').addEventListener('input', (e) => this.searchCityByIndex(e.target.value));
 
         document.addEventListener('click', (e) => { 
@@ -41,62 +44,59 @@ export class LocationManager {
         });
     }
 
-    // Пошук міста за поштовим індексом Укрпошти
+    // 1. ПОШУК МІСТА ЗА ІНДЕКСОМ (Використовуємо Нову Пошту!)
     async searchCityByIndex(val) {
         clearTimeout(this.indexDebounce);
         const cityInput = document.getElementById('newCity');
         const digits = val.replace(/\D/g, '');
         if (digits.length < 5) return;
 
-        this.indexDebounce = setTimeout(async () => {
-            cityInput.style.borderColor = '#ffb300'; // Жовтий колір під час завантаження
-            try {
-                // Використовуємо офіційний API Укрпошти через проксі (як у трекінгу)
-                const upToken = "e66c7553-9d16-3e74-b52b-45610665ed5b"; 
-                const targetUrl = `https://www.ukrposhta.ua/address-classifier-ws/get_city_by_postcode?postcode=${digits}`;
-                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
-                
-                const res = await fetch(proxyUrl, {
-                    headers: { 
-                        'Accept': 'application/json',
-                        'Authorization': `Bearer ${upToken}` 
-                    }
-                });
-                
-                if (!res.ok) throw new Error("Помилка API Укрпошти");
-                
-                const text = await res.text();
-                
-                // Витягуємо дані через регулярні вирази, щоб не залежати від змін структури JSON
-                const cityMatch = text.match(/"CITY_UA"\s*:\s*"([^"]+)"/i);
-                const regionMatch = text.match(/"REGION_UA"\s*:\s*"([^"]+)"/i);
-                const districtMatch = text.match(/"DISTRICT_UA"\s*:\s*"([^"]+)"/i);
+        // Не перезаписуємо, якщо місто вже введено руками
+        if (cityInput.value.trim() !== '') return;
 
-                if (cityMatch && cityMatch[1]) {
-                    const name = cityMatch[1];
-                    let parts = [name];
+        this.indexDebounce = setTimeout(async () => {
+            cityInput.style.borderColor = '#ffb300';
+            try {
+                // Нова Пошта вміє шукати по індексу через поле CityName!
+                const res = await fetch("https://api.novaposhta.ua/v2.0/json/", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        apiKey: this.apiKey,
+                        modelName: "Address",
+                        calledMethod: "searchSettlements",
+                        methodProperties: { CityName: digits, Limit: "1" }
+                    })
+                }).then(r => r.json());
+
+                if (res.success && res.data && res.data[0] && res.data[0].Addresses.length > 0) {
+                    const city = res.data[0].Addresses[0];
+                    const type = (city.SettlementTypeCode || '').replace('.', ''); 
+                    const name = city.MainDescription;
+                    let desc = "";
+                    if (city.Area) desc += `${city.Area} обл.`;
+                    if (city.Region) desc += `, ${city.Region} р-н.`;
                     
-                    if (regionMatch && regionMatch[1] && regionMatch[1] !== name && regionMatch[1] !== 'Київ') {
-                        parts.push(regionMatch[1] + ' обл.');
-                    }
-                    if (districtMatch && districtMatch[1] && districtMatch[1] !== name && districtMatch[1] !== regionMatch?.[1]) {
-                        parts.push(districtMatch[1] + ' р-н.');
-                    }
+                    const fullName = `${type}. ${name}${desc ? ' - ' + desc : ''}`;
                     
-                    cityInput.value = parts.join(', ');
-                    cityInput.style.borderColor = '#4caf50'; // Зелений колір при успіху
+                    if (cityInput.value.trim() === '') {
+                        cityInput.value = fullName;
+                        this.currentCityRef = city.DeliveryCity;
+                        cityInput.style.borderColor = '#4caf50';
+                    }
                 } else {
-                    throw new Error("Місто не знайдено");
+                    cityInput.style.borderColor = '#d32f2f'; // Не знайдено
                 }
             } catch(e) {
-                console.warn("Помилка пошуку по індексу Укрпошти:", e);
-                cityInput.style.borderColor = '#d32f2f'; // Червоний колір при помилці
+                console.error("Помилка пошуку по індексу:", e);
+                cityInput.style.borderColor = '#d32f2f';
             } finally {
                 setTimeout(() => cityInput.style.borderColor = '', 2000);
             }
         }, 700);
     }
 
+    // 2. ПОШУК МІСТА ЗА НАЗВОЮ (з виправленим багом "м..")
     searchCity(val) {
         clearTimeout(this.cityDebounce);
         const box = document.getElementById('citySuggestions');
@@ -111,7 +111,7 @@ export class LocationManager {
                     method: "POST", 
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ 
-                        apiKey: "", 
+                        apiKey: this.apiKey, 
                         modelName: "Address", 
                         calledMethod: "searchSettlements", 
                         methodProperties: { CityName: val, Limit: "50" } 
@@ -119,26 +119,34 @@ export class LocationManager {
                 }).then(r => r.json());
                 
                 box.innerHTML = '';
-                if (res.data && res.data[0] && res.data[0].Addresses.length > 0) {
+                if (res.success && res.data && res.data[0] && res.data[0].Addresses.length > 0) {
                     res.data[0].Addresses.forEach(city => {
-                        const type = city.SettlementTypeCode; 
+                        // Виправляємо баг з двома крапками
+                        const type = (city.SettlementTypeCode || '').replace('.', ''); 
                         const name = city.MainDescription;
                         let desc = "";
                         if (city.Area) desc += `${city.Area} обл.`;
                         if (city.Region) desc += `, ${city.Region} р-н.`;
                         
+                        const fullName = `${type}. ${name}${desc ? ' - ' + desc : ''}`;
+                        
                         const div = document.createElement('div'); 
                         div.className = 'suggestion-item'; 
                         div.innerHTML = `<b>${type}. ${name}</b> <span style="font-size:13px; color:#666;">${desc ? '- ' + desc : ''}</span>`;
                         
-                        div.onclick = () => { 
-                            document.getElementById('newCity').value = `${type}. ${name}${desc ? ' - ' + desc : ''}`; 
+                        div.onclick = async () => { 
+                            document.getElementById('newCity').value = fullName; 
                             this.currentCityRef = city.DeliveryCity; 
                             box.style.display = 'none'; 
+                            
                             const delivType = document.querySelector('input[name="deliveryType"]:checked').value;
-                            delivType === 'ukrposhta' 
-                                ? document.getElementById('newIndex').focus() 
-                                : document.getElementById('newBranch').focus();
+                            if (delivType === 'ukrposhta') {
+                                document.getElementById('newIndex').focus();
+                                // Одразу підтягуємо індекс
+                                await this.fetchIndexForCity(city.Ref || city.DeliveryCity);
+                            } else {
+                                document.getElementById('newBranch').focus();
+                            }
                         }; 
                         box.appendChild(div);
                     });
@@ -151,13 +159,49 @@ export class LocationManager {
         }, 300);
     }
 
+    // 3. ПІДТЯГУВАННЯ ІНДЕКСУ ЗА ОБРАНИМ МІСТОМ
+    async fetchIndexForCity(cityRef) {
+        if (!cityRef) return;
+        const indexInput = document.getElementById('newIndex');
+        
+        // Не замінюємо індекс, якщо користувач вже щось ввів сам
+        if (indexInput.value.trim() !== '') return;
+
+        indexInput.style.borderColor = '#ffb300';
+        try {
+            const res = await fetch("https://api.novaposhta.ua/v2.0/json/", { 
+                method: "POST", 
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                    apiKey: this.apiKey, 
+                    modelName: "Address", 
+                    calledMethod: "getSettlements", 
+                    methodProperties: { Ref: cityRef } 
+                }) 
+            }).then(r => r.json());
+            
+            if (res.success && res.data && res.data.length > 0) {
+                // Беремо індекс Укрпошти з бази Нової Пошти
+                const index = res.data[0].Index1 || res.data[0].Index2;
+                if (index && indexInput.value.trim() === '') {
+                    indexInput.value = index;
+                    indexInput.style.borderColor = '#4caf50';
+                }
+            }
+        } catch(e) {
+            console.error("Помилка автозаповнення індексу:", e);
+        } finally {
+            setTimeout(() => indexInput.style.borderColor = '', 2000);
+        }
+    }
+
+    // ПОШУК ВІДДІЛЕНЬ (без змін)
     searchBranch(val) {
         clearTimeout(this.branchDebounce);
         const box = document.getElementById('branchSuggestions');
         const deliveryType = document.querySelector('input[name="deliveryType"]:checked').value;
         const addressType = document.querySelector('input[name="addressType"]:checked').value;
         
-        // Відключаємо підказки відділень якщо вибрана Вулиця або Укрпошта
         if (deliveryType === 'ukrposhta' || addressType === 'street' || !this.currentCityRef) { 
             box.style.display = 'none'; 
             return; 
@@ -169,7 +213,7 @@ export class LocationManager {
                     method: "POST", 
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ 
-                        apiKey: "", 
+                        apiKey: this.apiKey, 
                         modelName: "Address", 
                         calledMethod: "getWarehouses", 
                         methodProperties: { 
@@ -181,7 +225,7 @@ export class LocationManager {
                 }).then(r => r.json());
                 
                 box.innerHTML = '';
-                if (res.data && res.data.length > 0) {
+                if (res.success && res.data && res.data.length > 0) {
                     box.style.display = 'block';
                     res.data.forEach(b => {
                         const div = document.createElement('div'); 
