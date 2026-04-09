@@ -264,9 +264,10 @@ export class OrderList {
             });
 
             // Отримуємо актуальний курс USD/UAH
-            const rateRes = await fetch('https://api.frankfurter.app/latest?from=USD&to=UAH').then(r => r.json());
-            const rate = rateRes?.rates?.UAH;
-            if (!rate) throw new Error("Не вдалося отримати курс");
+            // Отримуємо актуальний курс USD/UAH від НБУ
+            const rateRes = await fetch('https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=USD&json').then(r => r.json());
+            const rate = rateRes[0]?.rate;
+            if (!rate) throw new Error("Не вдалося отримати курс від НБУ");
 
             let total, symbol, rateInfo;
             if (targetCurrency === 'UAH') {

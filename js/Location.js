@@ -49,62 +49,50 @@ export class LocationManager {
         if (digits.length < 5) return;
 
         this.indexDebounce = setTimeout(async () => {
-            // Шукаємо населений пункт через Нову Пошту по назві (індекс → місто через відкритий API)
-            // Спочатку пробуємо через Nova Poshta: шукаємо settlement за індексом
+            cityInput.style.borderColor = '#ffb300'; // Жовтий колір під час завантаження
             try {
-                const res = await fetch("https://api.novaposhta.ua/v2.0/json/", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        apiKey: "",
-                        modelName: "Address",
-                        calledMethod: "getSettlements",
-                        methodProperties: { Index: digits, Limit: "1" }
-                    })
-                }).then(r => r.json());
+                // Використовуємо офіційний API Укрпошти через проксі (як у трекінгу)
+                const upToken = "e66c7553-9d16-3e74-b52b-45610665ed5b"; 
+                const targetUrl = `https://www.ukrposhta.ua/address-classifier-ws/get_city_by_postcode?postcode=${digits}`;
+                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+                
+                const res = await fetch(proxyUrl, {
+                    headers: { 
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${upToken}` 
+                    }
+                });
+                
+                if (!res.ok) throw new Error("Помилка API Укрпошти");
+                
+                const text = await res.text();
+                
+                // Витягуємо дані через регулярні вирази, щоб не залежати від змін структури JSON
+                const cityMatch = text.match(/"CITY_UA"\s*:\s*"([^"]+)"/i);
+                const regionMatch = text.match(/"REGION_UA"\s*:\s*"([^"]+)"/i);
+                const districtMatch = text.match(/"DISTRICT_UA"\s*:\s*"([^"]+)"/i);
 
-                if (res.success && res.data && res.data.length > 0) {
-                    const s = res.data[0];
-                    const type = s.SettlementTypeDescription || '';
-                    const name = s.Description || '';
-                    const region = s.RegionsDescription || '';
-                    const area = s.AreaDescription || '';
-                    const parts = [type && name ? `${type} ${name}` : name];
-                    if (area) parts.push(area + ' обл.');
-                    if (region) parts.push(region + ' р-н.');
-                    cityInput.value = parts.filter(Boolean).join(', ');
-                    cityInput.style.borderColor = '#4caf50';
-                    setTimeout(() => cityInput.style.borderColor = '', 2000);
-                    return;
-                }
-            } catch(e) { /* fallback нижче */ }
-
-            // Fallback: шукаємо через searchSettlements з індексом як текст
-            try {
-                const res2 = await fetch("https://api.novaposhta.ua/v2.0/json/", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        apiKey: "",
-                        modelName: "Address",
-                        calledMethod: "searchSettlements",
-                        methodProperties: { CityName: digits, Limit: "5" }
-                    })
-                }).then(r => r.json());
-
-                if (res2.data && res2.data[0] && res2.data[0].Addresses.length > 0) {
-                    const city = res2.data[0].Addresses[0];
-                    const type = city.SettlementTypeCode || '';
-                    const name = city.MainDescription || '';
-                    let desc = '';
-                    if (city.Area) desc += city.Area + ' обл.';
-                    if (city.Region) desc += ', ' + city.Region + ' р-н.';
-                    cityInput.value = `${type}. ${name}${desc ? ' - ' + desc : ''}`;
-                    cityInput.style.borderColor = '#4caf50';
-                    setTimeout(() => cityInput.style.borderColor = '', 2000);
+                if (cityMatch && cityMatch[1]) {
+                    const name = cityMatch[1];
+                    let parts = [name];
+                    
+                    if (regionMatch && regionMatch[1] && regionMatch[1] !== name && regionMatch[1] !== 'Київ') {
+                        parts.push(regionMatch[1] + ' обл.');
+                    }
+                    if (districtMatch && districtMatch[1] && districtMatch[1] !== name && districtMatch[1] !== regionMatch?.[1]) {
+                        parts.push(districtMatch[1] + ' р-н.');
+                    }
+                    
+                    cityInput.value = parts.join(', ');
+                    cityInput.style.borderColor = '#4caf50'; // Зелений колір при успіху
+                } else {
+                    throw new Error("Місто не знайдено");
                 }
             } catch(e) {
-                console.warn("Помилка пошуку по індексу:", e);
+                console.warn("Помилка пошуку по індексу Укрпошти:", e);
+                cityInput.style.borderColor = '#d32f2f'; // Червоний колір при помилці
+            } finally {
+                setTimeout(() => cityInput.style.borderColor = '', 2000);
             }
         }, 700);
     }
