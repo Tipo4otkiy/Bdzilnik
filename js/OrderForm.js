@@ -45,7 +45,6 @@ export class OrderForm {
             this.core.blacklist.checkWarning(e.target.value);
         });
 
-        // ГЛОБАЛЬНИЙ ЗАХИСТ: Ховаємо кастомні підказки товарів при кліку в будь-яке інше місце
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.item-autocomplete')) {
                 document.querySelectorAll('.preset-suggestions').forEach(box => box.style.display = 'none');
@@ -109,6 +108,9 @@ export class OrderForm {
         document.getElementById('orderModalTitle').innerText = id ? "Редагування замовлення" : "Нове замовлення";
         document.getElementById('blacklistWarning').style.display = 'none';
 
+        // Відновлюємо галочку "Терміново"
+        document.getElementById('newIsUrgent').checked = data?.isUrgent || false;
+
         document.getElementById('newPhone').value = formatPhoneString(data?.customerPhone || '');
         document.getElementById('newName').value = data?.customerName || '';
         document.getElementById('newCity').value = data?.city || '';
@@ -140,7 +142,6 @@ export class OrderForm {
         this.modal.style.display = 'flex';
     }
 
-    // НОВИЙ МЕТОД З КАСТОМНИМ ВИПАДАЮЧИМ СПИСКОМ ТОВАРІВ
     addItemRow(name = "", qty = 1, price = "", currency = "₴") {
         const r = document.createElement('div');
         r.className = 'item-row-wrapper';
@@ -166,9 +167,7 @@ export class OrderForm {
         const priceInput = r.querySelector('.i-price');
         const currencyInput = r.querySelector('.i-currency');
 
-        // Функція відображення списку пресетів
         const showSuggestions = () => {
-            // Ховаємо всі інші відкриті списки товарів (якщо їх декілька)
             document.querySelectorAll('.preset-suggestions').forEach(box => {
                 if (box !== suggBox) box.style.display = 'none';
             });
@@ -176,7 +175,6 @@ export class OrderForm {
             const val = nameInput.value.toLowerCase().trim();
             suggBox.innerHTML = '';
 
-            // Показуємо всі пресети, якщо поле порожнє, інакше шукаємо збіги
             const matches = val === '' 
                 ? this.core.presets 
                 : this.core.presets.filter(p => p.name.toLowerCase().includes(val));
@@ -188,14 +186,13 @@ export class OrderForm {
                     div.className = 'suggestion-item';
                     div.innerHTML = `<div style="display:flex; justify-content:space-between; width:100%;"><b>${m.name}</b> <span style="color:#666; font-size:13px; font-weight:normal;">${m.price} ${m.currency || '₴'}</span></div>`;
                     
-                    // Використовуємо onmousedown, щоб клік зарахувався ДО того, як інпут втратить фокус
                     div.onmousedown = (e) => {
                         e.preventDefault(); 
                         nameInput.value = m.name;
                         priceInput.value = m.price;
                         if (m.currency) currencyInput.value = m.currency;
                         suggBox.style.display = 'none';
-                        this.calcTotal(); // Оновлюємо загальну суму
+                        this.calcTotal(); 
                     };
                     suggBox.appendChild(div);
                 });
@@ -204,10 +201,8 @@ export class OrderForm {
             }
         };
 
-        // Запускаємо логіку при введенні тексту та при кліку(фокусі) на порожнє поле
         nameInput.addEventListener('input', showSuggestions);
         nameInput.addEventListener('focus', showSuggestions);
-
         this.calcTotal();
     }
 
@@ -236,11 +231,8 @@ export class OrderForm {
         btn.innerText = "⏳..."; btn.disabled = true;
 
         try {
-            // Перевіряємо профіль, щоб унеможливити створення замовлення видаленим продавцем
             const userCheck = await getDoc(doc(this.core.db, "users", this.core.currentUser.uid));
-            if (!userCheck.exists()) {
-                throw new Error("Помилка доступу: ваш профіль було видалено.");
-            }
+            if (!userCheck.exists()) throw new Error("Помилка доступу: ваш профіль було видалено.");
 
             const phone = document.getElementById('newPhone').value.trim();
             const name = document.getElementById('newName').value.trim();
@@ -271,6 +263,7 @@ export class OrderForm {
                     ? document.getElementById('newIndex').value.trim() : "",
                 branch: document.getElementById('newBranch').value.trim(),
                 comment: document.getElementById('newComment').value.trim(),
+                isUrgent: document.getElementById('newIsUrgent').checked, // ЗБЕРІГАЄМО СТАТУС ТЕРМІНОВОСТІ
                 items,
                 totalPrice: uah,
                 totalUSD: usd,
@@ -298,9 +291,7 @@ export class OrderForm {
             this.core.orderList.render();
         } catch (err) {
             alert(err.message || "Помилка збереження");
-            if (err.message.includes("профіль було видалено")) {
-                window.location.reload(); 
-            }
+            if (err.message.includes("профіль було видалено")) window.location.reload(); 
         } finally {
             btn.innerText = "Зберегти"; btn.disabled = false;
         }

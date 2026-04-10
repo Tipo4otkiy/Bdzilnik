@@ -7,12 +7,96 @@ export class OrderList {
         this.currentOrderIdForTtn = null;
         this.currentTab = 'active';
         this.ordersData = [];
+        
+        // Стан сортування (Головний екран)
+        this.currentSearchText = '';
+        this.sortField = 'date';
+        this.sortOrder = 'desc';
+        this.showUrgent = true;
+
+        // Стан сортування (Кошик)
+        this.deletedSearchText = '';
+        this.deletedSortField = 'date';
+        this.deletedSortOrder = 'desc';
+        this.deletedShowUrgent = true;
+
         this.bindEvents();
     }
 
     bindEvents() {
-        document.getElementById('universalSearch').addEventListener('input', (e) => this.render(e.target.value));
+        // --- ГОЛОВНИЙ ЕКРАН (ПОШУК І СОРТУВАННЯ) ---
+        document.getElementById('universalSearch').addEventListener('input', (e) => {
+            this.currentSearchText = e.target.value;
+            this.render();
+        });
 
+        const sortDropdown = document.getElementById('sortDropdown');
+        const sortOrderBtn = document.getElementById('sortOrderBtn');
+
+        document.getElementById('openSortBtn').addEventListener('click', (e) => {
+            e.stopPropagation(); 
+            sortDropdown.style.display = sortDropdown.style.display === 'flex' ? 'none' : 'flex';
+        });
+
+        document.getElementById('sortField').addEventListener('change', (e) => {
+            this.sortField = e.target.value;
+            this.render();
+        });
+
+        sortOrderBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.sortOrder = this.sortOrder === 'desc' ? 'asc' : 'desc';
+            sortOrderBtn.innerHTML = this.sortOrder === 'desc' ? '⬇️' : '⬆️';
+            this.render();
+        });
+
+        document.getElementById('showUrgent').addEventListener('change', (e) => {
+            this.showUrgent = e.target.checked;
+            this.render();
+        });
+
+        // --- КОШИК (ПОШУК І СОРТУВАННЯ) ---
+        document.getElementById('deletedSearch').addEventListener('input', (e) => {
+            this.deletedSearchText = e.target.value;
+            this.renderDeleted();
+        });
+
+        const deletedSortDropdown = document.getElementById('deletedSortDropdown');
+        const deletedSortOrderBtn = document.getElementById('deletedSortOrderBtn');
+
+        document.getElementById('openDeletedSortBtn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            deletedSortDropdown.style.display = deletedSortDropdown.style.display === 'flex' ? 'none' : 'flex';
+        });
+
+        document.getElementById('deletedSortField').addEventListener('change', (e) => {
+            this.deletedSortField = e.target.value;
+            this.renderDeleted();
+        });
+
+        deletedSortOrderBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.deletedSortOrder = this.deletedSortOrder === 'desc' ? 'asc' : 'desc';
+            deletedSortOrderBtn.innerHTML = this.deletedSortOrder === 'desc' ? '⬇️' : '⬆️';
+            this.renderDeleted();
+        });
+
+        document.getElementById('deletedShowUrgent').addEventListener('change', (e) => {
+            this.deletedShowUrgent = e.target.checked;
+            this.renderDeleted();
+        });
+
+        // --- ЗАКРИТТЯ МЕНЮ ПРИ КЛІКУ ПОЗА НИМИ ---
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#sortDropdown') && e.target.id !== 'openSortBtn') {
+                if (sortDropdown) sortDropdown.style.display = 'none';
+            }
+            if (!e.target.closest('#deletedSortDropdown') && e.target.id !== 'openDeletedSortBtn') {
+                if (deletedSortDropdown) deletedSortDropdown.style.display = 'none';
+            }
+        });
+
+        // Вкладки
         document.getElementById('tabActiveBtn').addEventListener('click', () => {
             this.currentTab = 'active'; this.updateTabUI(); this.render();
         });
@@ -20,7 +104,7 @@ export class OrderList {
             this.currentTab = 'history'; this.updateTabUI(); this.render();
         });
 
-        // --- ОБРОБНИКИ ДЛЯ КОШИКА ---
+        // Відкриття/Закриття кошика
         const deletedModal = document.getElementById('deletedModal');
         document.getElementById('openDeletedBtn').addEventListener('click', () => {
             deletedModal.style.display = 'flex';
@@ -28,10 +112,10 @@ export class OrderList {
         });
         document.getElementById('closeDeletedBtn').addEventListener('click', () => {
             deletedModal.style.display = 'none';
-            this.render(); // Оновлюємо головний екран при закритті
+            this.render();
         });
 
-        // --- СПІЛЬНИЙ ОБРОБНИК КЛІКІВ ДЛЯ КАРТОЧОК ---
+        // Дії із замовленнями
         const handleOrderActions = async (e) => {
             const btn = e.target.closest('button');
             if (!btn) return;
@@ -45,11 +129,9 @@ export class OrderList {
             if (action === 'repeat') {
                 const docRef = await getDoc(doc(this.core.db, "orders", id));
                 if (docRef.exists()) {
-                    // Передаем данные старого заказа, но вместо ID пишем null. 
-                    // Форма откроется заполненной, но при сохранении создаст НОВЫЙ активный заказ.
                     this.core.orderForm.open(docRef.data(), null);
                 }
-}
+            }
             if (action === 'delete') {
                 if (confirm("Перемістити замовлення в Кошик (Видалені)?")) {
                     await updateDoc(doc(this.core.db, "orders", id), { status: 'deleted' });
@@ -67,7 +149,6 @@ export class OrderList {
                     this.render();
                 }
             }
-            // Дії всередині кошика:
             if (action === 'restore') {
                 if (confirm("Відновити замовлення? Воно повернеться у поточні/історію.")) {
                     await updateDoc(doc(this.core.db, "orders", id), { status: 'active' });
@@ -82,23 +163,18 @@ export class OrderList {
             }
         };
 
-        // Вішаємо один і той самий обробник на обидва контейнери
         this.container.addEventListener('click', handleOrderActions);
         document.getElementById('deletedContent').addEventListener('click', handleOrderActions);
 
-        // --- ЗБЕРЕЖЕННЯ ТТН ---
+        // Збереження ТТН
         document.getElementById('closeTtnBtn').onclick = () => document.getElementById('ttnModal').style.display = 'none';
         document.getElementById('saveTtnBtn').onclick = async () => {
             const ttn = document.getElementById('ttnInput').value.trim().toUpperCase();
             if (ttn.length < 10) return alert("ТТН має містити мінімум 10 символів!");
             await updateDoc(doc(this.core.db, "orders", this.currentOrderIdForTtn), { ttn });
             document.getElementById('ttnModal').style.display = 'none';
-            
             this.render();
-            // Якщо кошик відкритий, оновлюємо і його
-            if (document.getElementById('deletedModal').style.display === 'flex') {
-                this.renderDeleted();
-            }
+            if (document.getElementById('deletedModal').style.display === 'flex') this.renderDeleted();
         };
 
         document.getElementById('calcStatBtn').addEventListener('click', () => this.calculateAnalytics());
@@ -110,6 +186,7 @@ export class OrderList {
         document.getElementById('tabHistoryBtn').className = `tab-btn ${this.currentTab === 'history' ? 'active' : ''}`;
         document.getElementById('historyAnalytics').style.display = this.currentTab === 'history' ? 'block' : 'none';
         document.getElementById('universalSearch').value = '';
+        this.currentSearchText = '';
     }
 
     _cleanPhone(phone) {
@@ -132,15 +209,58 @@ export class OrderList {
         return `<span style="color:#ffb300; font-weight:bold;">${uah} ₴</span>`;
     }
 
-    async render(filter = "") {
+    // УНІВЕРСАЛЬНИЙ МЕТОД ФІЛЬТРАЦІЇ ТА СОРТУВАННЯ
+    _applySortAndFilters(list, isDeleted = false) {
+        // Беремо стан залежно від того, де ми знаходимось (головний екран чи кошик)
+        const searchText = isDeleted ? this.deletedSearchText : this.currentSearchText;
+        const showUrgent = isDeleted ? this.deletedShowUrgent : this.showUrgent;
+        const sortField = isDeleted ? this.deletedSortField : this.sortField;
+        const sortOrder = isDeleted ? this.deletedSortOrder : this.sortOrder;
+
+        // 1. Пошук
+        if (searchText) {
+            const f = searchText.toLowerCase();
+            list = list.filter(o =>
+                (o.customerName || '').toLowerCase().includes(f) ||
+                (o.customerPhone || '').includes(f) ||
+                (o.ttn || '').toLowerCase().includes(f)
+            );
+        }
+        
+        // 2. Фільтр видимості "Терміново"
+        if (!showUrgent) {
+            list = list.filter(o => !o.isUrgent);
+        }
+
+        // 3. Сортування
+        list.sort((a, b) => {
+            // Термінові ЗАВЖДИ закріплюємо зверху (якщо вони не приховані)
+            if (a.isUrgent && !b.isUrgent) return -1;
+            if (!a.isUrgent && b.isUrgent) return 1;
+
+            let result = 0;
+            if (sortField === 'date') {
+                result = (a.createdAt || 0) - (b.createdAt || 0);
+            } else if (sortField === 'name') {
+                result = (a.customerName || '').localeCompare(b.customerName || '');
+            } else if (sortField === 'sum') {
+                result = (a.totalPrice || 0) - (b.totalPrice || 0);
+            }
+            
+            // Якщо вибрано спадання (⬇️), інвертуємо результат
+            return sortOrder === 'desc' ? -result : result;
+        });
+        
+        return list;
+    }
+
+    async render() {
         try {
             let q;
-            if (this.core.userRole === 'admin') {
-                if (this.core.admin?.currentSellerFilter) {
-                    q = query(collection(this.core.db, "orders"), where("sellerId", "==", this.core.admin.currentSellerFilter));
-                } else {
-                    q = query(collection(this.core.db, "orders"));
-                }
+            if (this.core.userRole === 'admin' && this.core.admin?.currentSellerFilter) {
+                q = query(collection(this.core.db, "orders"), where("sellerId", "==", this.core.admin.currentSellerFilter));
+            } else if (this.core.userRole === 'admin') {
+                q = query(collection(this.core.db, "orders"));
             } else {
                 q = query(collection(this.core.db, "orders"), where("sellerId", "==", this.core.currentUser.uid));
             }
@@ -149,36 +269,32 @@ export class OrderList {
             let list = [];
             snap.forEach(d => list.push({ id: d.id, ...d.data() }));
 
-            // Фільтруємо замовлення для головних вкладок
+            // Відкидаємо видалені та фільтруємо по вкладці
             list = list.filter(o => {
-                if (o.status === 'deleted') return false; // ХОВАЄМО ВИДАЛЕНІ
+                if (o.status === 'deleted') return false; 
                 const isHistory = o.status === 'history';
                 return this.currentTab === 'active' ? !isHistory : isHistory;
             });
 
             this.ordersData = list;
-
-            if (filter) {
-                const f = filter.toLowerCase();
-                list = list.filter(o =>
-                    (o.customerName || '').toLowerCase().includes(f) ||
-                    (o.customerPhone || '').includes(f) ||
-                    (o.ttn || '').toLowerCase().includes(f)
-                );
-            }
+            
+            // Застосовуємо фільтри для головного екрана
+            list = this._applySortAndFilters(list, false);
 
             if (list.length === 0) {
                 this.container.innerHTML = `<div style="text-align:center; color:#999; padding: 40px 20px;">
                     <div style="font-size:40px; margin-bottom:10px;">${this.currentTab === 'active' ? '📭' : '🕰️'}</div>
-                    <div>${this.currentTab === 'active' ? 'Немає поточних замовлень' : 'Історія порожня'}</div>
+                    <div>Немає замовлень, які відповідають критеріям</div>
                 </div>`;
                 return;
             }
 
-            this.container.innerHTML = list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map(o => {
+            this.container.innerHTML = list.map(o => {
                 const isBl = this._isBlacklisted(o.customerPhone);
                 const addrPrefix = o.addressType === 'street' ? '🛣️ Вулиця:' : '🏢 Відділення:';
                 const dateStr = o.createdAt ? new Date(o.createdAt).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+                
+                const urgentHtml = o.isUrgent ? '<span style="background: #ffe0b2; color: #e65100; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-right: 5px; vertical-align: middle;">🔥 Терміново</span>' : '';
 
                 const itemsHtml = (o.items || []).map(i => {
                     const cur = i.currency || '₴';
@@ -186,12 +302,12 @@ export class OrderList {
                 }).join('<br>');
 
                 return `
-                <div class="card" ${isBl ? 'style="border: 2px solid #ef9a9a;"' : ''}>
+                <div class="card" ${isBl || o.isUrgent ? `style="border: 2px solid ${isBl ? '#ef9a9a' : '#ffe0b2'};"` : ''}>
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <b style="font-size:15px;">${isBl ? '<span style="color:red;">[ЧС]</span> ' : ''}${o.customerName || ''}</b>
-                        <div style="text-align:right; line-height:1.4;">${this._formatOrderSum(o)}</div>
+                        <b style="font-size:15px; line-height: 1.4;">${isBl ? '<span style="color:red;">[ЧС]</span> ' : ''}${urgentHtml}${o.customerName || ''}</b>
+                        <div style="text-align:right; line-height:1.4; white-space: nowrap; margin-left: 5px;">${this._formatOrderSum(o)}</div>
                     </div>
-                    <div style="font-size:12px; color:#888; margin-bottom:4px;">${dateStr}</div>
+                    <div style="font-size:12px; color:#888; margin-bottom:4px; margin-top:2px;">${dateStr}</div>
                     <div style="font-size:12px; color:#666">${o.customerPhone || ''}</div>
                     <div style="font-size:13px; margin:8px 0; line-height:1.7;">${itemsHtml}</div>
                     ${o.comment ? `<div style="font-size:12px; color:#e65100; margin-bottom:5px; background:#fff3e0; padding:6px 8px; border-radius:6px;">💬 ${o.comment}</div>` : ''}
@@ -217,7 +333,7 @@ export class OrderList {
                     <div class="card-actions">
                         ${this.currentTab === 'active'
                             ? `<button class="btn-secondary btn-small" data-action="complete" data-id="${o.id}" style="background:#e8f5e9; color:#2e7d32; flex:1;">✅ Виконано</button>`
-                            : `<button class="btn-secondary btn-small" data-action="repeat" data-id="${o.id}" style="background:#e3f2fd; color:#1976d2;">🔄 Повторити</button>`
+                            : `<button class="btn-secondary btn-small" data-action="repeat" data-id="${o.id}" style="background:#e3f2fd; color:#1976d2; flex-shrink: 0;">🔄 Повторити</button>`
                         }
                         <button class="btn-secondary btn-small" data-action="edit" data-id="${o.id}" style="background:#fff3e0; color:#e65100;">✏️ Ред.</button>
                         <button class="btn-secondary btn-small" data-action="delete" data-id="${o.id}" style="background:#ffebee; color:#d32f2f;">🗑️ Видалити</button>
@@ -232,19 +348,16 @@ export class OrderList {
         }
     }
 
-    // --- НОВИЙ МЕТОД ДЛЯ РЕНДЕРУ КОШИКА ---
     async renderDeleted() {
         const container = document.getElementById('deletedContent');
         container.innerHTML = '<div style="text-align:center; padding: 20px; color: #888;">⏳ Завантаження кошика...</div>';
 
         try {
             let q;
-            if (this.core.userRole === 'admin') {
-                if (this.core.admin?.currentSellerFilter) {
-                    q = query(collection(this.core.db, "orders"), where("sellerId", "==", this.core.admin.currentSellerFilter));
-                } else {
-                    q = query(collection(this.core.db, "orders"));
-                }
+            if (this.core.userRole === 'admin' && this.core.admin?.currentSellerFilter) {
+                q = query(collection(this.core.db, "orders"), where("sellerId", "==", this.core.admin.currentSellerFilter));
+            } else if (this.core.userRole === 'admin') {
+                q = query(collection(this.core.db, "orders"));
             } else {
                 q = query(collection(this.core.db, "orders"), where("sellerId", "==", this.core.currentUser.uid));
             }
@@ -253,34 +366,36 @@ export class OrderList {
             let list = [];
             snap.forEach(d => {
                 const data = d.data();
-                if (data.status === 'deleted') {
-                    list.push({ id: d.id, ...data });
-                }
+                if (data.status === 'deleted') list.push({ id: d.id, ...data });
             });
+
+            // Застосовуємо фільтри спеціально для кошика
+            list = this._applySortAndFilters(list, true);
 
             if (list.length === 0) {
                 container.innerHTML = `<div style="text-align:center; color:#999; padding: 40px 20px;">
                     <div style="font-size:40px; margin-bottom:10px;">🗑️</div>
-                    <div>Кошик порожній</div>
+                    <div>Кошик порожній або нічого не знайдено</div>
                 </div>`;
                 return;
             }
 
-            container.innerHTML = list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map(o => {
+            container.innerHTML = list.map(o => {
                 const isBl = this._isBlacklisted(o.customerPhone);
                 const addrPrefix = o.addressType === 'street' ? '🛣️ Вулиця:' : '🏢 Відділення:';
                 const dateStr = o.createdAt ? new Date(o.createdAt).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+                
+                const urgentHtml = o.isUrgent ? '<span style="background: #ffe0b2; color: #e65100; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-right: 5px; vertical-align: middle;">🔥 Терміново</span>' : '';
 
                 const itemsHtml = (o.items || []).map(i => {
                     const cur = i.currency || '₴';
                     return `• ${i.name} (x${i.qty}) — ${i.price} ${cur}`;
                 }).join('<br>');
 
-                // Дизайн кошика: напівпрозорі картки з перекресленим ім'ям
                 return `
-                <div class="card" style="${isBl ? 'border: 2px solid #ef9a9a;' : ''} opacity: 0.85; background: #fafafa;">
+                <div class="card" style="${isBl || o.isUrgent ? `border: 2px solid ${isBl ? '#ef9a9a' : '#ffe0b2'};` : ''} opacity: 0.85; background: #fafafa;">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <b style="font-size:15px; text-decoration: line-through; color:#777;">${isBl ? '<span style="color:red;">[ЧС]</span> ' : ''}${o.customerName || ''}</b>
+                        <b style="font-size:15px; text-decoration: line-through; color:#777;">${isBl ? '<span style="color:red;">[ЧС]</span> ' : ''}${urgentHtml}${o.customerName || ''}</b>
                         <div style="text-align:right; line-height:1.4; filter: grayscale(1);">${this._formatOrderSum(o)}</div>
                     </div>
                     <div style="font-size:12px; color:#aaa; margin-bottom:4px;">${dateStr}</div>
@@ -400,7 +515,6 @@ export class OrderList {
                 totalUSD += o.totalUSD || 0;
             });
 
-            // Отримуємо актуальний курс USD/UAH від НБУ
             const rateRes = await fetch('https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=USD&json').then(r => r.json());
             const rate = rateRes[0]?.rate;
             if (!rate) throw new Error("Не вдалося отримати курс");
