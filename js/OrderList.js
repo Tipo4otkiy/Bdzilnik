@@ -211,7 +211,6 @@ export class OrderList {
 
     // УНІВЕРСАЛЬНИЙ МЕТОД ФІЛЬТРАЦІЇ ТА СОРТУВАННЯ
     _applySortAndFilters(list, isDeleted = false) {
-        // Беремо стан залежно від того, де ми знаходимось (головний екран чи кошик)
         const searchText = isDeleted ? this.deletedSearchText : this.currentSearchText;
         const showUrgent = isDeleted ? this.deletedShowUrgent : this.showUrgent;
         const sortField = isDeleted ? this.deletedSortField : this.sortField;
@@ -282,7 +281,8 @@ export class OrderList {
             list = this._applySortAndFilters(list, false);
 
             if (list.length === 0) {
-                this.container.innerHTML = `<div style="text-align:center; color:#999; padding: 40px 20px;">
+                // ТУТ ЗМІНЕНО: grid-column: 1 / -1; щоб текст розтягувався на 2 колонки на ПК
+                this.container.innerHTML = `<div style="text-align:center; color:#999; padding: 40px 20px; grid-column: 1 / -1;">
                     <div style="font-size:40px; margin-bottom:10px;">${this.currentTab === 'active' ? '📭' : '🕰️'}</div>
                     <div>Немає замовлень, які відповідають критеріям</div>
                 </div>`;
@@ -344,13 +344,13 @@ export class OrderList {
             this.fetchLiveStatuses(list);
         } catch (error) {
             console.error("Помилка рендеру:", error);
-            this.container.innerHTML = `<div style="text-align:center; color:#d32f2f; padding:30px;">Помилка завантаження. Перевірте підключення.</div>`;
+            this.container.innerHTML = `<div style="text-align:center; color:#d32f2f; padding:30px; grid-column: 1 / -1;">Помилка завантаження. Перевірте підключення.</div>`;
         }
     }
 
     async renderDeleted() {
         const container = document.getElementById('deletedContent');
-        container.innerHTML = '<div style="text-align:center; padding: 20px; color: #888;">⏳ Завантаження кошика...</div>';
+        container.innerHTML = '<div style="text-align:center; padding: 20px; color: #888; grid-column: 1 / -1;">⏳ Завантаження кошика...</div>';
 
         try {
             let q;
@@ -373,7 +373,8 @@ export class OrderList {
             list = this._applySortAndFilters(list, true);
 
             if (list.length === 0) {
-                container.innerHTML = `<div style="text-align:center; color:#999; padding: 40px 20px;">
+                // ТУТ ЗМІНЕНО: grid-column: 1 / -1;
+                container.innerHTML = `<div style="text-align:center; color:#999; padding: 40px 20px; grid-column: 1 / -1;">
                     <div style="font-size:40px; margin-bottom:10px;">🗑️</div>
                     <div>Кошик порожній або нічого не знайдено</div>
                 </div>`;
@@ -430,7 +431,7 @@ export class OrderList {
             
         } catch (error) {
             console.error("Помилка рендеру кошика:", error);
-            container.innerHTML = `<div style="text-align:center; color:#d32f2f; padding:30px;">Помилка завантаження кошика.</div>`;
+            container.innerHTML = `<div style="text-align:center; color:#d32f2f; padding:30px; grid-column: 1 / -1;">Помилка завантаження кошика.</div>`;
         }
     }
 
