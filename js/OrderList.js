@@ -8,13 +8,11 @@ export class OrderList {
         this.currentTab = 'active';
         this.ordersData = [];
         
-        // Стан сортування (Головний екран)
         this.currentSearchText = '';
         this.sortField = 'date';
         this.sortOrder = 'desc';
         this.showUrgent = true;
 
-        // Стан сортування (Кошик)
         this.deletedSearchText = '';
         this.deletedSortField = 'date';
         this.deletedSortOrder = 'desc';
@@ -24,7 +22,6 @@ export class OrderList {
     }
 
     bindEvents() {
-        // --- ГОЛОВНИЙ ЕКРАН (ПОШУК І СОРТУВАННЯ) ---
         document.getElementById('universalSearch').addEventListener('input', (e) => {
             this.currentSearchText = e.target.value;
             this.render();
@@ -55,7 +52,6 @@ export class OrderList {
             this.render();
         });
 
-        // --- КОШИК (ПОШУК І СОРТУВАННЯ) ---
         document.getElementById('deletedSearch').addEventListener('input', (e) => {
             this.deletedSearchText = e.target.value;
             this.renderDeleted();
@@ -86,7 +82,6 @@ export class OrderList {
             this.renderDeleted();
         });
 
-        // --- ЗАКРИТТЯ МЕНЮ ПРИ КЛІКУ ПОЗА НИМИ ---
         document.addEventListener('click', (e) => {
             if (!e.target.closest('#sortDropdown') && e.target.id !== 'openSortBtn') {
                 if (sortDropdown) sortDropdown.style.display = 'none';
@@ -96,7 +91,6 @@ export class OrderList {
             }
         });
 
-        // Вкладки
         document.getElementById('tabActiveBtn').addEventListener('click', () => {
             this.currentTab = 'active'; this.updateTabUI(); this.render();
         });
@@ -104,7 +98,6 @@ export class OrderList {
             this.currentTab = 'history'; this.updateTabUI(); this.render();
         });
 
-        // Відкриття/Закриття кошика
         const deletedModal = document.getElementById('deletedModal');
         document.getElementById('openDeletedBtn').addEventListener('click', () => {
             deletedModal.style.display = 'flex';
@@ -115,7 +108,6 @@ export class OrderList {
             this.render();
         });
 
-        // Дії із замовленнями
         const handleOrderActions = async (e) => {
             const btn = e.target.closest('button');
             if (!btn) return;
@@ -166,7 +158,6 @@ export class OrderList {
         this.container.addEventListener('click', handleOrderActions);
         document.getElementById('deletedContent').addEventListener('click', handleOrderActions);
 
-        // Збереження ТТН
         document.getElementById('closeTtnBtn').onclick = () => document.getElementById('ttnModal').style.display = 'none';
         document.getElementById('saveTtnBtn').onclick = async () => {
             const ttn = document.getElementById('ttnInput').value.trim().toUpperCase();
@@ -209,14 +200,12 @@ export class OrderList {
         return `<span style="color:#ffb300; font-weight:bold;">${uah} ₴</span>`;
     }
 
-    // УНІВЕРСАЛЬНИЙ МЕТОД ФІЛЬТРАЦІЇ ТА СОРТУВАННЯ
     _applySortAndFilters(list, isDeleted = false) {
         const searchText = isDeleted ? this.deletedSearchText : this.currentSearchText;
         const showUrgent = isDeleted ? this.deletedShowUrgent : this.showUrgent;
         const sortField = isDeleted ? this.deletedSortField : this.sortField;
         const sortOrder = isDeleted ? this.deletedSortOrder : this.sortOrder;
 
-        // 1. Пошук
         if (searchText) {
             const f = searchText.toLowerCase();
             list = list.filter(o =>
@@ -226,14 +215,11 @@ export class OrderList {
             );
         }
         
-        // 2. Фільтр видимості "Терміново"
         if (!showUrgent) {
             list = list.filter(o => !o.isUrgent);
         }
 
-        // 3. Сортування
         list.sort((a, b) => {
-            // Термінові ЗАВЖДИ закріплюємо зверху (якщо вони не приховані)
             if (a.isUrgent && !b.isUrgent) return -1;
             if (!a.isUrgent && b.isUrgent) return 1;
 
@@ -246,11 +232,33 @@ export class OrderList {
                 result = (a.totalPrice || 0) - (b.totalPrice || 0);
             }
             
-            // Якщо вибрано спадання (⬇️), інвертуємо результат
             return sortOrder === 'desc' ? -result : result;
         });
         
         return list;
+    }
+
+    // --- НОВИЙ ВІДЖЕТ ВІДОБРАЖЕННЯ ТРЕКІНГУ ---
+    _buildTrackingUI(t) {
+        if (!t || !t.currentStatus) return '<div style="font-size:12px; color:#888; margin-top:8px;">⏳ Завантаження статусу...</div>';
+        
+        let html = `<div style="margin-top: 8px; padding: 10px; background: #fff; border-radius: 8px; border: 1px solid #e0e0e0;">`;
+        html += `<div style="font-weight:bold; font-size:13px; color:${t.completed ? '#2e7d32' : '#f57f17'}; margin-bottom: 6px; border-bottom: 1px solid #eee; padding-bottom: 4px;">🚚 ${t.currentStatus}</div>`;
+        
+        html += `<div style="display:flex; flex-direction:column; gap:4px; font-size: 11px; color: #555;">`;
+        
+        if (t.dispatched) {
+            html += `<div style="display:flex; justify-content:space-between;"><span>📦 Відправлено:</span> <b>${t.dispatched}</b></div>`;
+        }
+        if (t.arrived) {
+            html += `<div style="display:flex; justify-content:space-between;"><span>📍 Прибуло у відділення:</span> <b>${t.arrived}</b></div>`;
+        }
+        if (t.received) {
+            html += `<div style="display:flex; justify-content:space-between; color:#2e7d32;"><span>✅ Отримано:</span> <b>${t.received}</b></div>`;
+        }
+        
+        html += `</div></div>`;
+        return html;
     }
 
     async render() {
@@ -268,7 +276,6 @@ export class OrderList {
             let list = [];
             snap.forEach(d => list.push({ id: d.id, ...d.data() }));
 
-            // Відкидаємо видалені та фільтруємо по вкладці
             list = list.filter(o => {
                 if (o.status === 'deleted') return false; 
                 const isHistory = o.status === 'history';
@@ -276,12 +283,9 @@ export class OrderList {
             });
 
             this.ordersData = list;
-            
-            // Застосовуємо фільтри для головного екрана
             list = this._applySortAndFilters(list, false);
 
             if (list.length === 0) {
-                // ТУТ ЗМІНЕНО: grid-column: 1 / -1; щоб текст розтягувався на 2 колонки на ПК
                 this.container.innerHTML = `<div style="text-align:center; color:#999; padding: 40px 20px; grid-column: 1 / -1;">
                     <div style="font-size:40px; margin-bottom:10px;">${this.currentTab === 'active' ? '📭' : '🕰️'}</div>
                     <div>Немає замовлень, які відповідають критеріям</div>
@@ -320,14 +324,16 @@ export class OrderList {
                     </div>
 
                     ${o.ttn
-                        ? `<div class="status-box">
-                               <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:5px;">
-                                   <div style="font-size:13px; font-weight:bold; word-break: break-all;">ТТН: ${o.ttn}</div>
-                                   <button class="btn-secondary btn-small" data-action="add-ttn" data-id="${o.id}" data-ttn="${o.ttn}" style="margin:0 0 0 10px; padding:4px 8px; font-size:11px; flex-shrink:0;">✏️ Змінити</button>
+                        ? `<div class="status-box" style="background:#f4f9f4; border:1px solid #c8e6c9;">
+                               <div style="display:flex; justify-content:space-between; align-items:center;">
+                                   <div style="font-size:13px; font-weight:bold; word-break: break-all; color:#1976d2;">🔎 ТТН: ${o.ttn}</div>
+                                   <button class="btn-secondary btn-small" data-action="add-ttn" data-id="${o.id}" data-ttn="${o.ttn}" style="margin:0; padding:4px 8px; font-size:11px; flex-shrink:0; background:#fff; border:1px solid #ddd;">✏️ Змінити</button>
                                </div>
-                               <div id="status-${o.id}" style="font-size:13px; color:#888; margin-top:5px;">⏳ Завантаження статусу...</div>
+                               <div id="status-${o.id}">
+                                   ${o.trackingTimeline ? this._buildTrackingUI(o.trackingTimeline) : '<div style="font-size:12px; color:#888; margin-top:8px;">⏳ Завантаження статусу...</div>'}
+                               </div>
                            </div>`
-                        : `<button class="btn-secondary btn-small" data-action="add-ttn" data-id="${o.id}" style="margin-top:10px; width:100%; padding:10px;">+ Додати ТТН</button>`
+                        : `<button class="btn-secondary btn-small" data-action="add-ttn" data-id="${o.id}" style="margin-top:10px; width:100%; padding:10px; border:1px dashed #ccc; background:#fafafa;">+ Додати ТТН</button>`
                     }
 
                     <div class="card-actions">
@@ -369,11 +375,9 @@ export class OrderList {
                 if (data.status === 'deleted') list.push({ id: d.id, ...data });
             });
 
-            // Застосовуємо фільтри спеціально для кошика
             list = this._applySortAndFilters(list, true);
 
             if (list.length === 0) {
-                // ТУТ ЗМІНЕНО: grid-column: 1 / -1;
                 container.innerHTML = `<div style="text-align:center; color:#999; padding: 40px 20px; grid-column: 1 / -1;">
                     <div style="font-size:40px; margin-bottom:10px;">🗑️</div>
                     <div>Кошик порожній або нічого не знайдено</div>
@@ -413,9 +417,12 @@ export class OrderList {
 
                     ${o.ttn
                         ? `<div class="status-box" style="opacity: 0.9; background: #fff;">
-                               <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                                   <div style="font-size:13px; font-weight:bold; word-break: break-all; color:#555;">ТТН: ${o.ttn}</div>
-                                   <button class="btn-secondary btn-small" data-action="add-ttn" data-id="${o.id}" data-ttn="${o.ttn}" style="margin:0 0 0 10px; padding:4px 8px; font-size:11px; flex-shrink:0;">✏️ Змінити</button>
+                               <div style="display:flex; justify-content:space-between; align-items:center;">
+                                   <div style="font-size:13px; font-weight:bold; word-break: break-all; color:#555;">🔎 ТТН: ${o.ttn}</div>
+                                   <button class="btn-secondary btn-small" data-action="add-ttn" data-id="${o.id}" data-ttn="${o.ttn}" style="margin:0; padding:4px 8px; font-size:11px; flex-shrink:0;">✏️ Змінити</button>
+                               </div>
+                               <div id="status-${o.id}">
+                                   ${o.trackingTimeline ? this._buildTrackingUI(o.trackingTimeline) : '<div style="font-size:12px; color:#888; margin-top:8px;">⏳ Завантаження статусу...</div>'}
                                </div>
                            </div>`
                         : `<button class="btn-secondary btn-small" data-action="add-ttn" data-id="${o.id}" style="margin-top:10px; width:100%; padding:10px;">+ Додати ТТН</button>`
@@ -544,6 +551,7 @@ export class OrderList {
         }
     }
 
+    // --- ЗБЕРЕЖЕННЯ ТА ВІДОБРАЖЕННЯ ДАНИХ ТРЕКІНГУ У БД ---
     async fetchLiveStatuses(orders) {
         let hasAutoCompleted = false;
 
@@ -552,15 +560,22 @@ export class OrderList {
             const el = document.getElementById(`status-${o.id}`);
             if (!el) continue;
 
+            // Якщо ми вже отримали посилку раніше, просто малюємо збережений таймлайн (економимо запити)
+            if (o.trackingTimeline?.received && o.trackingTimeline?.completed) {
+                el.innerHTML = this._buildTrackingUI(o.trackingTimeline);
+                continue;
+            }
+
             const isNovaPoshta = /^\d{14}$/.test(o.ttn);
+            let timeline = o.trackingTimeline || {};
+            let needsDbUpdate = false;
 
             try {
                 if (isNovaPoshta) {
                     const res = await fetch("https://api.novaposhta.ua/v2.0/json/", {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
-                            apiKey: "",
+                            apiKey: "", 
                             modelName: "TrackingDocument",
                             calledMethod: "getStatusDocuments",
                             methodProperties: { Documents: [{ DocumentNumber: o.ttn }] }
@@ -568,17 +583,42 @@ export class OrderList {
                     }).then(r => r.json());
 
                     if (res.data && res.data[0]) {
-                        const statusStr = res.data[0].Status;
-                        const statusCode = res.data[0].StatusCode;
-                        el.innerHTML = `<span style="color:#2e7d32;"><b>${statusStr}</b></span><br><span style="font-size:11px; color:#666;">Відправлено: ${res.data[0].DateCreated || '—'}</span>`;
-                        if (o.status !== 'history' && (statusCode === "9" || statusCode === "10" || statusCode === "11" || statusStr.toLowerCase().includes("одержано"))) {
-                            await updateDoc(doc(this.core.db, "orders", o.id), { status: 'history' });
-                            hasAutoCompleted = true;
+                        const d = res.data[0];
+                        const statusStr = d.Status;
+                        const statusCode = d.StatusCode;
+
+                        // Фіксуємо відправку
+                        if (!timeline.dispatched && statusCode !== "1" && statusCode !== "2") {
+                            timeline.dispatched = d.DateCreated || new Date().toLocaleString('uk-UA'); 
+                            needsDbUpdate = true;
                         }
-                    } else {
-                        el.innerHTML = '<span style="color:#888;">Статус не знайдено</span>';
+                        
+                        // Фіксуємо прибуття
+                        if (!timeline.arrived && (statusCode === "7" || statusCode === "8")) {
+                            timeline.arrived = new Date().toLocaleString('uk-UA'); 
+                            needsDbUpdate = true;
+                        }
+                        
+                        // Фіксуємо отримання
+                        if (statusCode === "9" || statusCode === "10" || statusCode === "11" || statusStr.toLowerCase().includes("одержано")) {
+                            if (!timeline.received) timeline.received = d.RecipientDateTime || new Date().toLocaleString('uk-UA');
+                            timeline.completed = true;
+                            needsDbUpdate = true;
+                            
+                            // АВТОМАТИЧНИЙ ПЕРЕХІД В ІСТОРІЮ
+                            if (o.status !== 'history') { 
+                                await updateDoc(doc(this.core.db, "orders", o.id), { status: 'history' }); 
+                                hasAutoCompleted = true; 
+                            }
+                        }
+                        
+                        if (timeline.currentStatus !== statusStr) {
+                            timeline.currentStatus = statusStr;
+                            needsDbUpdate = true;
+                        }
                     }
                 } else {
+                    
                     const upToken = "e66c7553-9d16-3e74-b52b-45610665ed5b";
                     const targetUrl = `https://www.ukrposhta.ua/status-tracking/0.0.1/statuses?barcode=${o.ttn}`;
                     const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
@@ -589,25 +629,62 @@ export class OrderList {
                         if (data && data.length > 0) {
                             const lastStatus = data[data.length - 1];
                             const statusName = lastStatus.eventName || "В дорозі";
-                            el.innerHTML = `<span style="color:#f57f17;"><b>${statusName}</b></span><br><span style="font-size:11px; color:#666;">Оновлено: ${new Date(lastStatus.date).toLocaleString('uk-UA')}</span>`;
                             const sLower = statusName.toLowerCase();
-                            if (o.status !== 'history' && (sLower.includes("вручення") || sLower.includes("вручено") || sLower.includes("одержано"))) {
-                                await updateDoc(doc(this.core.db, "orders", o.id), { status: 'history' });
-                                hasAutoCompleted = true;
+
+                            // Фіксуємо відправку (Укрпошта)
+                            const dispatchEvent = data.find(e => e.eventName.toLowerCase().includes("прийняття"));
+                            if (dispatchEvent && !timeline.dispatched) { 
+                                timeline.dispatched = new Date(dispatchEvent.date).toLocaleString('uk-UA'); 
+                                needsDbUpdate = true; 
                             }
-                        } else {
-                            el.innerHTML = '<span style="color:#888;">Посилка ще не відслідковується</span>';
+
+                            // Фіксуємо прибуття (Укрпошта)
+                            const arriveEvent = data.find(e => e.eventName.toLowerCase().includes("надходження до об'єкту поштового зв'язку") && !e.eventName.toLowerCase().includes("сортувальн"));
+                            if (arriveEvent && !timeline.arrived) { 
+                                timeline.arrived = new Date(arriveEvent.date).toLocaleString('uk-UA'); 
+                                needsDbUpdate = true; 
+                            }
+
+                            // Фіксуємо отримання (Укрпошта)
+                            if (sLower.includes("вручення") || sLower.includes("вручено") || sLower.includes("одержано")) {
+                                if (!timeline.received) timeline.received = new Date(lastStatus.date).toLocaleString('uk-UA');
+                                timeline.completed = true;
+                                needsDbUpdate = true;
+                                
+                                // АВТОМАТИЧНИЙ ПЕРЕХІД В ІСТОРІЮ
+                                if (o.status !== 'history') { 
+                                    await updateDoc(doc(this.core.db, "orders", o.id), { status: 'history' }); 
+                                    hasAutoCompleted = true; 
+                                }
+                            }
+                            
+                            if (timeline.currentStatus !== statusName) {
+                                timeline.currentStatus = statusName;
+                                needsDbUpdate = true;
+                            }
                         }
-                    } else { throw new Error("Proxy Error"); }
+                    }
                 }
+
+                // Зберігаємо зміни в БД, якщо знайшли нову дату
+                if (needsDbUpdate) {
+                    await updateDoc(doc(this.core.db, "orders", o.id), { trackingTimeline: timeline });
+                }
+
+                el.innerHTML = this._buildTrackingUI(timeline);
+
             } catch (e) {
-                const link = isNovaPoshta
-                    ? `https://tracking.novaposhta.ua/#/uk/?en=${o.ttn}`
-                    : `https://track.ukrposhta.ua/tracking_UA.html?barcode=${o.ttn}`;
-                el.innerHTML = `<a href="${link}" target="_blank" style="color:#1976d2; font-weight:bold; text-decoration:none;">🔗 Перевірити на сайті ↗</a>`;
+                // Якщо пошта видалила ТТН, дістаємо останню збережену копію з БД
+                if (timeline.currentStatus) {
+                    el.innerHTML = this._buildTrackingUI(timeline) + `<div style="font-size:10px; color:#aaa; margin-top:4px; text-align:right;">(Збережена копія з БД)</div>`;
+                } else {
+                    const link = isNovaPoshta ? `https://tracking.novaposhta.ua/#/uk/?en=${o.ttn}` : `https://track.ukrposhta.ua/tracking_UA.html?barcode=${o.ttn}`;
+                    el.innerHTML = `<a href="${link}" target="_blank" style="color:#1976d2; font-weight:bold; text-decoration:none;">🔗 Перевірити на сайті ↗</a>`;
+                }
             }
         }
 
+        // Якщо хоча б одне замовлення перейшло в "Отримані", оновлюємо сторінку
         if (hasAutoCompleted && this.currentTab === 'active') this.render();
     }
 }
