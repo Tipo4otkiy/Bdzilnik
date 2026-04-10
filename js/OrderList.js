@@ -20,7 +20,19 @@ export class OrderList {
             this.currentTab = 'history'; this.updateTabUI(); this.render();
         });
 
-        this.container.addEventListener('click', async (e) => {
+        // --- ОБРОБНИКИ ДЛЯ КОШИКА ---
+        const deletedModal = document.getElementById('deletedModal');
+        document.getElementById('openDeletedBtn').addEventListener('click', () => {
+            deletedModal.style.display = 'flex';
+            this.renderDeleted();
+        });
+        document.getElementById('closeDeletedBtn').addEventListener('click', () => {
+            deletedModal.style.display = 'none';
+            this.render(); // Оновлюємо головний екран при закритті
+        });
+
+        // --- СПІЛЬНИЙ ОБРОБНИК КЛІКІВ ДЛЯ КАРТОЧОК ---
+        const handleOrderActions = async (e) => {
             const btn = e.target.closest('button');
             if (!btn) return;
             const id = btn.dataset.id;
@@ -30,13 +42,14 @@ export class OrderList {
                 const docRef = await getDoc(doc(this.core.db, "orders", id));
                 if (docRef.exists()) this.core.orderForm.open(docRef.data(), id);
             }
-            if (action === 'delete' && confirm("Точно видалити це замовлення?")) {
-                await deleteDoc(doc(this.core.db, "orders", id));
-                this.render();
+            if (action === 'delete') {
+                if (confirm("Перемістити замовлення в Кошик (Видалені)?")) {
+                    await updateDoc(doc(this.core.db, "orders", id), { status: 'deleted' });
+                    this.render();
+                }
             }
             if (action === 'add-ttn') {
                 this.currentOrderIdForTtn = id;
-                // Беремо існуючу ТТН з атрибута кнопки (якщо вона там є)
                 document.getElementById('ttnInput').value = btn.dataset.ttn || '';
                 document.getElementById('ttnModal').style.display = 'flex';
             }
@@ -46,15 +59,38 @@ export class OrderList {
                     this.render();
                 }
             }
-        });
+            // Дії всередині кошика:
+            if (action === 'restore') {
+                if (confirm("Відновити замовлення? Воно повернеться у поточні/історію.")) {
+                    await updateDoc(doc(this.core.db, "orders", id), { status: 'active' });
+                    this.renderDeleted();
+                }
+            }
+            if (action === 'hard-delete') {
+                if (confirm("Назавжди видалити з бази? Цю дію НЕМОЖЛИВО відмінити!")) {
+                    await deleteDoc(doc(this.core.db, "orders", id));
+                    this.renderDeleted();
+                }
+            }
+        };
 
+        // Вішаємо один і той самий обробник на обидва контейнери
+        this.container.addEventListener('click', handleOrderActions);
+        document.getElementById('deletedContent').addEventListener('click', handleOrderActions);
+
+        // --- ЗБЕРЕЖЕННЯ ТТН ---
         document.getElementById('closeTtnBtn').onclick = () => document.getElementById('ttnModal').style.display = 'none';
         document.getElementById('saveTtnBtn').onclick = async () => {
             const ttn = document.getElementById('ttnInput').value.trim().toUpperCase();
             if (ttn.length < 10) return alert("ТТН має містити мінімум 10 символів!");
             await updateDoc(doc(this.core.db, "orders", this.currentOrderIdForTtn), { ttn });
             document.getElementById('ttnModal').style.display = 'none';
+            
             this.render();
+            // Якщо кошик відкритий, оновлюємо і його
+            if (document.getElementById('deletedModal').style.display === 'flex') {
+                this.renderDeleted();
+            }
         };
 
         document.getElementById('calcStatBtn').addEventListener('click', () => this.calculateAnalytics());
@@ -80,7 +116,6 @@ export class OrderList {
         return this.core.blacklistData.some(b => b.cleanPhone === clean || this._cleanPhone(b.phone) === clean);
     }
 
-    // Форматує суму замовлення для відображення
     _formatOrderSum(o) {
         const uah = o.totalPrice || 0;
         const usd = o.totalUSD || 0;
@@ -106,7 +141,9 @@ export class OrderList {
             let list = [];
             snap.forEach(d => list.push({ id: d.id, ...d.data() }));
 
+            // Фільтруємо замовлення для головних вкладок
             list = list.filter(o => {
+                if (o.status === 'deleted') return false; // ХОВАЄМО ВИДАЛЕНІ
                 const isHistory = o.status === 'history';
                 return this.currentTab === 'active' ? !isHistory : isHistory;
             });
@@ -160,12 +197,12 @@ export class OrderList {
 
                     ${o.ttn
                         ? `<div class="status-box">
-                            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:5px;">
-                                <div style="font-size:13px; font-weight:bold; word-break: break-all;">ТТН: ${o.ttn}</div>
-                                <button class="btn-secondary btn-small" data-action="add-ttn" data-id="${o.id}" data-ttn="${o.ttn}" style="margin:0 0 0 10px; padding:4px 8px; font-size:11px; flex-shrink:0;">✏️ Змінити</button>
-                            </div>
-                            <div id="status-${o.id}" style="font-size:13px; color:#888; margin-top:5px;">⏳ Завантаження статусу...</div>
-                        </div>`
+                               <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:5px;">
+                                   <div style="font-size:13px; font-weight:bold; word-break: break-all;">ТТН: ${o.ttn}</div>
+                                   <button class="btn-secondary btn-small" data-action="add-ttn" data-id="${o.id}" data-ttn="${o.ttn}" style="margin:0 0 0 10px; padding:4px 8px; font-size:11px; flex-shrink:0;">✏️ Змінити</button>
+                               </div>
+                               <div id="status-${o.id}" style="font-size:13px; color:#888; margin-top:5px;">⏳ Завантаження статусу...</div>
+                           </div>`
                         : `<button class="btn-secondary btn-small" data-action="add-ttn" data-id="${o.id}" style="margin-top:10px; width:100%; padding:10px;">+ Додати ТТН</button>`
                     }
 
@@ -183,6 +220,93 @@ export class OrderList {
         } catch (error) {
             console.error("Помилка рендеру:", error);
             this.container.innerHTML = `<div style="text-align:center; color:#d32f2f; padding:30px;">Помилка завантаження. Перевірте підключення.</div>`;
+        }
+    }
+
+    // --- НОВИЙ МЕТОД ДЛЯ РЕНДЕРУ КОШИКА ---
+    async renderDeleted() {
+        const container = document.getElementById('deletedContent');
+        container.innerHTML = '<div style="text-align:center; padding: 20px; color: #888;">⏳ Завантаження кошика...</div>';
+
+        try {
+            let q;
+            if (this.core.userRole === 'admin') {
+                if (this.core.admin?.currentSellerFilter) {
+                    q = query(collection(this.core.db, "orders"), where("sellerId", "==", this.core.admin.currentSellerFilter));
+                } else {
+                    q = query(collection(this.core.db, "orders"));
+                }
+            } else {
+                q = query(collection(this.core.db, "orders"), where("sellerId", "==", this.core.currentUser.uid));
+            }
+
+            const snap = await getDocs(q);
+            let list = [];
+            snap.forEach(d => {
+                const data = d.data();
+                if (data.status === 'deleted') {
+                    list.push({ id: d.id, ...data });
+                }
+            });
+
+            if (list.length === 0) {
+                container.innerHTML = `<div style="text-align:center; color:#999; padding: 40px 20px;">
+                    <div style="font-size:40px; margin-bottom:10px;">🗑️</div>
+                    <div>Кошик порожній</div>
+                </div>`;
+                return;
+            }
+
+            container.innerHTML = list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map(o => {
+                const isBl = this._isBlacklisted(o.customerPhone);
+                const addrPrefix = o.addressType === 'street' ? '🛣️ Вулиця:' : '🏢 Відділення:';
+                const dateStr = o.createdAt ? new Date(o.createdAt).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+
+                const itemsHtml = (o.items || []).map(i => {
+                    const cur = i.currency || '₴';
+                    return `• ${i.name} (x${i.qty}) — ${i.price} ${cur}`;
+                }).join('<br>');
+
+                // Дизайн кошика: напівпрозорі картки з перекресленим ім'ям
+                return `
+                <div class="card" style="${isBl ? 'border: 2px solid #ef9a9a;' : ''} opacity: 0.85; background: #fafafa;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <b style="font-size:15px; text-decoration: line-through; color:#777;">${isBl ? '<span style="color:red;">[ЧС]</span> ' : ''}${o.customerName || ''}</b>
+                        <div style="text-align:right; line-height:1.4; filter: grayscale(1);">${this._formatOrderSum(o)}</div>
+                    </div>
+                    <div style="font-size:12px; color:#aaa; margin-bottom:4px;">${dateStr}</div>
+                    <div style="font-size:12px; color:#888">${o.customerPhone || ''}</div>
+                    <div style="font-size:13px; margin:8px 0; line-height:1.7; color:#666;">${itemsHtml}</div>
+                    ${o.comment ? `<div style="font-size:12px; color:#e65100; margin-bottom:5px; background:#fff3e0; padding:6px 8px; border-radius:6px; opacity:0.8;">💬 ${o.comment}</div>` : ''}
+
+                    <div style="font-size:12px; border-top:1px solid #eee; padding-top:8px; margin-top:8px; color:#888;">
+                        <b>${o.deliveryMethod === 'ukrposhta' ? '📫 Укрпошта' : '📦 Нова Пошта'}</b><br>
+                        ${o.city || '<span style="color:#bbb;">Адресу не вказано</span>'}
+                        ${o.deliveryMethod === 'ukrposhta' && o.index ? `<br>Індекс: <b>${o.index}</b>` : ''}
+                        ${o.branch ? `<br>${addrPrefix} <b>${o.branch}</b>` : ''}
+                    </div>
+
+                    ${o.ttn
+                        ? `<div class="status-box" style="opacity: 0.9; background: #fff;">
+                               <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                   <div style="font-size:13px; font-weight:bold; word-break: break-all; color:#555;">ТТН: ${o.ttn}</div>
+                                   <button class="btn-secondary btn-small" data-action="add-ttn" data-id="${o.id}" data-ttn="${o.ttn}" style="margin:0 0 0 10px; padding:4px 8px; font-size:11px; flex-shrink:0;">✏️ Змінити</button>
+                               </div>
+                           </div>`
+                        : `<button class="btn-secondary btn-small" data-action="add-ttn" data-id="${o.id}" style="margin-top:10px; width:100%; padding:10px;">+ Додати ТТН</button>`
+                    }
+
+                    <div class="card-actions" style="margin-top: 15px; flex-wrap: nowrap; gap: 8px;">
+                        <button class="btn-secondary btn-small" data-action="restore" data-id="${o.id}" style="background:#e8f5e9; color:#2e7d32; flex:1.5; padding:10px; font-size:13px; font-weight:bold;">🔄 Відновити</button>
+                        <button class="btn-secondary btn-small" data-action="edit" data-id="${o.id}" style="background:#fff3e0; color:#e65100; flex:1; padding:10px;">✏️ Ред.</button>
+                        <button class="btn-secondary btn-small" data-action="hard-delete" data-id="${o.id}" style="background:#ffebee; color:#d32f2f; flex:1; padding:10px;">❌ Знищити</button>
+                    </div>
+                </div>`;
+            }).join('');
+            
+        } catch (error) {
+            console.error("Помилка рендеру кошика:", error);
+            container.innerHTML = `<div style="text-align:center; color:#d32f2f; padding:30px;">Помилка завантаження кошика.</div>`;
         }
     }
 
@@ -267,11 +391,10 @@ export class OrderList {
                 totalUSD += o.totalUSD || 0;
             });
 
-            // Отримуємо актуальний курс USD/UAH
             // Отримуємо актуальний курс USD/UAH від НБУ
             const rateRes = await fetch('https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=USD&json').then(r => r.json());
             const rate = rateRes[0]?.rate;
-            if (!rate) throw new Error("Не вдалося отримати курс від НБУ");
+            if (!rate) throw new Error("Не вдалося отримати курс");
 
             let total, symbol, rateInfo;
             if (targetCurrency === 'UAH') {
