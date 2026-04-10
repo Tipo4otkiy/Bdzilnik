@@ -18,7 +18,7 @@
         .user-info { font-size: 12px; text-align: right; line-height: 1.2; }
         
         main { padding: 15px; padding-bottom: 80px; }
-        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; flex-direction: column; height: 100%; box-sizing: border-box; }
         input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; outline: none; transition: border 0.2s; }
         input:focus { border-color: #4CAF50; }
         button { width: 100%; padding: 12px; background: #4CAF50; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; transition: opacity 0.2s; }
@@ -43,7 +43,7 @@
         .delivery-toggle label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: bold; white-space: nowrap; }
         input[type="radio"] { width: 20px; height: 20px; margin: 0; padding: 0; flex-shrink: 0; }
         
-        .card-actions { display: flex; gap: 5px; justify-content: flex-end; margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; flex-wrap: wrap; }
+        .card-actions { display: flex; gap: 5px; justify-content: flex-end; margin-top: auto; border-top: 1px solid #eee; padding-top: 10px; flex-wrap: wrap; }
         .status-box { background: #f9f9f9; padding: 10px; border-radius: 8px; margin-top: 10px; border: 1px solid #eee; }
         
         #blacklistWarning { display: none; background: #ffebee; border: 1px solid #ef9a9a; color: #c62828; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; line-height: 1.4; }
@@ -62,7 +62,7 @@
             display: grid;
             grid-template-columns: 1fr;
             gap: 12px;
-            align-items: start; /* Щоб сусідні картки не розтягувалися одна під одну */
+            align-items: stretch;
         }
         
         @media (min-width: 768px) {
