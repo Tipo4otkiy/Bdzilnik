@@ -70,6 +70,19 @@
                 grid-template-columns: 1fr 1fr;
             }
         }
+        /* Кастомна кнопка для Термінових замовлень */
+        .urgent-checkbox { display: none; }
+        .urgent-content {
+            display: flex; justify-content: center; align-items: center; gap: 10px;
+            padding: 15px; background: #fafafa; border: 2px solid #eee; border-radius: 10px;
+            font-weight: bold; color: #999; transition: all 0.2s;
+        }
+        .urgent-checkbox:checked + .urgent-content {
+            background: #fff8e1; border-color: #ffb300; color: #e65100;
+            box-shadow: 0 4px 12px rgba(255, 179, 0, 0.15);
+        }
+        .urgent-icon::before { content: "⚪"; font-size: 18px; opacity: 0.5; }
+        .urgent-checkbox:checked + .urgent-content .urgent-icon::before { content: "✅"; opacity: 1; }
     </style>
 </head>
 <body>
@@ -292,9 +305,9 @@
         <input type="text" id="newIndex" placeholder="📮 Індекс (наприклад: 01001)" inputmode="numeric">
         <div style="font-size:11px; color:#aaa; margin: -4px 0 8px 4px;">✨ Місто підтягнеться автоматично по індексу</div>
 
-        <div style="display: flex; gap: 15px; margin: 10px 0 5px; font-size: 14px; padding: 0 5px;">
-            <label style="cursor: pointer;"><input type="radio" name="addressType" value="branch" checked> 🏢 Відділення</label>
-            <label style="cursor: pointer;"><input type="radio" name="addressType" value="street"> 🛣️ Вулиця</label>
+        <div class="delivery-toggle" style="margin: 10px 0 5px;">
+            <label><input type="radio" name="addressType" value="branch" checked> 🏢 Відділення</label>
+            <label><input type="radio" name="addressType" value="street"> 🛣️ Вулиця</label>
         </div>
 
         <div class="autocomplete-wrapper">
@@ -306,9 +319,12 @@
         <button id="addItemBtn" class="btn-secondary" style="font-size: 14px; margin-bottom: 15px;">+ Додати позицію</button>
         
         <input type="text" id="newComment" placeholder="💬 Коментар до замовлення">
-        <label style="display:flex; align-items:center; gap:8px; padding: 12px; background: #fff3e0; border-radius: 8px; font-weight:bold; color: #e65100; margin-bottom: 10px; border: 1px solid #ffe0b2; cursor: pointer;">
-            <input type="checkbox" id="newIsUrgent" style="width: 22px; height: 22px; margin:0; flex-shrink:0;">
-            🔥 ТЕРМІНОВЕ ЗАМОВЛЕННЯ
+        <label style="display: block; cursor: pointer; margin: 15px 0;">
+            <input type="checkbox" id="newIsUrgent" class="urgent-checkbox">
+            <div class="urgent-content">
+                <span class="urgent-icon"></span>
+                <span>🔥 ТЕРМІНОВЕ ЗАМОВЛЕННЯ</span>
+            </div>
         </label>
         
         <div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; margin: 15px 0;">
