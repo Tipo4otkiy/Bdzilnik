@@ -85,7 +85,15 @@ class CRMApp {
 
     async loadClients() {
         const snap = await getDocs(collection(this.db, "clients"));
-        this.clients = snap.docs.map(d => ({ phone: d.id, name: d.data().name }));
+        this.clients = [];
+        snap.forEach(d => {
+            const data = d.data();
+            this.clients.push({
+                phone: data.phone,
+                name: data.name,
+                knownNames: data.knownNames || [] // 👈 ДОДАЙ ЦЕЙ РЯДОК
+            });
+        });
     }
 }
 

@@ -18,14 +18,22 @@ export class BlacklistManager {
         });
         
         document.getElementById('closeBlacklistBtn').addEventListener('click', () => this.modal.style.display = 'none');
-        document.getElementById('showAddBlFormBtn').addEventListener('click', () => this.showForm());
-        document.getElementById('cancelBlBtn').addEventListener('click', () => document.getElementById('addBlForm').style.display = 'none');
+        document.getElementById('showAddBlFormBtn').onclick = () => {
+        document.getElementById('addBlForm').style.display = 'block';
+        document.getElementById('showAddBlFormBtn').style.display = 'none'; 
+    };
+        document.getElementById('cancelBlBtn').onclick = () => {
+        document.getElementById('addBlForm').style.display = 'none';
+        document.getElementById('showAddBlFormBtn').style.display = 'block';
+
+    };
         
         document.getElementById('blPhoneInput').addEventListener('input', (e) => this.handleInput(e.target.value));
         
         document.getElementById('saveBlBtn').addEventListener('click', (e) => {
             e.preventDefault();
             this.save();
+            
         });
 
         document.getElementById('blacklistContent').addEventListener('click', (e) => {

@@ -73,23 +73,66 @@ export class OrderForm {
 
                 const matches = this.core.clients.filter(c => {
                     if (field === 'phone') return this._cleanPhone(c.phone).includes(val);
-                    return (c[field] || '').toLowerCase().includes(val);
+                    
+                    const namesToSearch = c.knownNames || [c.name];
+                    return namesToSearch.some(n => (n || '').toLowerCase().includes(val));
                 }).slice(0, 5);
 
                 if (matches.length > 0) {
                     box.style.display = 'block';
                     matches.forEach(m => {
                         const isBl = this.core.blacklistData.some(b => b.cleanPhone === this._cleanPhone(m.phone));
-                        const div = document.createElement('div');
-                        div.className = 'suggestion-item';
-                        div.innerHTML = `${isBl ? '<span style="color:red; font-weight:bold;">[ЧС]</span> ' : ''}<b>${m.name}</b> <span style="color:#666">(${m.phone})</span>`;
-                        div.onclick = () => { fillLogic(m); box.style.display = 'none'; this.core.blacklist.checkWarning(m.phone); };
-                        box.appendChild(div);
+                        
+                        // Збираємо всі імена в один масив
+                        let namesArray = [];
+                        if (m.knownNames && Array.isArray(m.knownNames)) {
+                            namesArray = [...m.knownNames];
+                        }
+                        if (m.name && !namesArray.includes(m.name)) {
+                            namesArray.push(m.name);
+                        }
+                        
+                        // Завжди ставимо актуальне (останнє) ім'я на перше місце
+                        namesArray = namesArray.filter(n => n && n !== m.name);
+                        if (m.name) namesArray.unshift(m.name);
+
+                        // Виводимо кожне ім'я
+                        namesArray.forEach((singleName, index) => {
+                            if (!singleName) return;
+                            
+                            const isAlias = index > 0;
+                            const div = document.createElement('div');
+                            div.className = 'suggestion-item';
+                            
+                            if (isAlias) {
+                                div.style.paddingLeft = '25px';
+                                div.style.borderTop = '1px dashed #eee';
+                                div.style.background = '#fafbfc';
+                            }
+
+                            const prefix = isAlias ? '<span style="color:#ccc; margin-right:6px;">↳</span>' : '';
+                            const tag = isAlias ? '<span style="font-size:10px; color:#888; background:#e0e0e0; padding:2px 6px; border-radius:4px; margin-left:6px;">варіант</span>' : '';
+                            const phoneColor = isAlias ? '#bbb' : '#666';
+
+                            div.innerHTML = `${isBl && !isAlias ? '<span style="color:red; font-weight:bold;">[ЧС]</span> ' : ''}${prefix}<b style="color:${isAlias ? '#555' : '#000'}">${singleName}</b>${tag} <span style="color:${phoneColor}">(${m.phone})</span>`;
+                            
+                            // ЗМІНЕНО НА onmousedown (вирішує баг з недоступністю вибору на телефонах)
+                            div.onmousedown = (e) => { 
+                                e.preventDefault(); 
+                                const chosenClientData = { ...m, name: singleName };
+                                fillLogic(chosenClientData); 
+                                box.style.display = 'none'; 
+                                this.core.blacklist.checkWarning(m.phone); 
+                            };
+                            box.appendChild(div);
+                        });
                     });
                 } else {
                     box.style.display = 'none';
                 }
             });
+            
+            // Ховаємо меню при кліку поза ним
             document.addEventListener('click', (e) => { if (e.target !== input) box.style.display = 'none'; });
         };
 
@@ -108,7 +151,6 @@ export class OrderForm {
         document.getElementById('orderModalTitle').innerText = id ? "Редагування замовлення" : "Нове замовлення";
         document.getElementById('blacklistWarning').style.display = 'none';
 
-        // Відновлюємо галочку "Терміново"
         document.getElementById('newIsUrgent').checked = data?.isUrgent || false;
 
         document.getElementById('newPhone').value = formatPhoneString(data?.customerPhone || '');
@@ -126,7 +168,7 @@ export class OrderForm {
         const addrType = data?.addressType || 'branch';
         const addrRadio = document.querySelector(`input[name="addressType"][value="${addrType}"]`);
         if (addrRadio) addrRadio.checked = true;
-        document.getElementById('newBranch').placeholder = addrType === 'branch' ? "Номер або назва відділення..." : "Назва вулиці, будинок, квартира...";
+        document.getElementById('newBranch').placeholder = addrType === 'branch' ? "Номер або назва відділення (необов'язково)" : "Назва вулиці, будинок, квартира (необов'язково)";
 
         this.core.location.currentCityRef = "";
         this.container.innerHTML = '<strong>Товари:</strong>';
@@ -263,7 +305,7 @@ export class OrderForm {
                     ? document.getElementById('newIndex').value.trim() : "",
                 branch: document.getElementById('newBranch').value.trim(),
                 comment: document.getElementById('newComment').value.trim(),
-                isUrgent: document.getElementById('newIsUrgent').checked, // ЗБЕРІГАЄМО СТАТУС ТЕРМІНОВОСТІ
+                isUrgent: document.getElementById('newIsUrgent').checked,
                 items,
                 totalPrice: uah,
                 totalUSD: usd,
@@ -279,9 +321,27 @@ export class OrderForm {
                 await addDoc(collection(this.core.db, "orders"), orderData);
             }
 
+            // БРОНЬОВАНЕ ЗБЕРЕЖЕННЯ В БД (ЗБИРАЄМО ВСІ ІМЕНА)
             const cleanPhone = this._cleanPhone(phone);
             if (cleanPhone.length === 10) {
-                await setDoc(doc(this.core.db, "clients", cleanPhone), { name, phone }, { merge: true });
+                const clientRef = doc(this.core.db, "clients", cleanPhone);
+                const clientSnap = await getDoc(clientRef);
+                
+                let existingNames = [];
+                if (clientSnap.exists()) {
+                    const data = clientSnap.data();
+                    if (data.knownNames) existingNames = data.knownNames;
+                    else if (data.name) existingNames = [data.name];
+                }
+
+                // Створюємо унікальний набір імен, додаючи нове
+                const namesToSave = Array.from(new Set([...existingNames, name])).filter(Boolean);
+
+                await setDoc(clientRef, { 
+                    name: name, // Останнє актуальне
+                    phone: phone, 
+                    knownNames: namesToSave 
+                }, { merge: true });
             }
 
             await this.core.loadClients();
