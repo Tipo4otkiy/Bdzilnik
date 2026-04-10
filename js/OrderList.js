@@ -42,6 +42,14 @@ export class OrderList {
                 const docRef = await getDoc(doc(this.core.db, "orders", id));
                 if (docRef.exists()) this.core.orderForm.open(docRef.data(), id);
             }
+            if (action === 'repeat') {
+                const docRef = await getDoc(doc(this.core.db, "orders", id));
+                if (docRef.exists()) {
+                    // Передаем данные старого заказа, но вместо ID пишем null. 
+                    // Форма откроется заполненной, но при сохранении создаст НОВЫЙ активный заказ.
+                    this.core.orderForm.open(docRef.data(), null);
+                }
+}
             if (action === 'delete') {
                 if (confirm("Перемістити замовлення в Кошик (Видалені)?")) {
                     await updateDoc(doc(this.core.db, "orders", id), { status: 'deleted' });
@@ -209,7 +217,8 @@ export class OrderList {
                     <div class="card-actions">
                         ${this.currentTab === 'active'
                             ? `<button class="btn-secondary btn-small" data-action="complete" data-id="${o.id}" style="background:#e8f5e9; color:#2e7d32; flex:1;">✅ Виконано</button>`
-                            : ''}
+                            : `<button class="btn-secondary btn-small" data-action="repeat" data-id="${o.id}" style="background:#e3f2fd; color:#1976d2;">🔄 Повторити</button>`
+                        }
                         <button class="btn-secondary btn-small" data-action="edit" data-id="${o.id}" style="background:#fff3e0; color:#e65100;">✏️ Ред.</button>
                         <button class="btn-secondary btn-small" data-action="delete" data-id="${o.id}" style="background:#ffebee; color:#d32f2f;">🗑️ Видалити</button>
                     </div>
