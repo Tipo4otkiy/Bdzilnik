@@ -31,6 +31,7 @@ class CRMApp {
 
         // Активуємо наш фікс для клавіатури при старті
         this.setupMobileKeyboardFix();
+        this.setupIosPrompt();
     }
 
     // НОВИЙ МЕТОД ДЛЯ ПЛАВНОГО ПІДЙОМУ ЕКРАНА
@@ -46,6 +47,31 @@ class CRMApp {
                 }, 300); 
             }
         });
+    }
+    // ДЕТЕКТОР iPHONE ДЛЯ ПІДКАЗКИ ВСТАНОВЛЕННЯ
+    setupIosPrompt() {
+        const isIos = () => {
+            const userAgent = window.navigator.userAgent.toLowerCase();
+            return /iphone|ipad|ipod/.test(userAgent);
+        };
+
+        // Перевіряємо, чи додаток ВЖЕ встановлено (працює в standalone режимі)
+        const isStandalone = ('standalone' in window.navigator) && (window.navigator.standalone);
+
+        // Якщо це iOS, додаток ще не встановлено, і користувач ще не закривав цю підказку
+        if (isIos() && !isStandalone && !localStorage.getItem('iosPromptDismissed')) {
+            const prompt = document.getElementById('iosInstallPrompt');
+            if (prompt) {
+                // Показуємо з невеличкою затримкою для краси
+                setTimeout(() => prompt.style.display = 'block', 2000);
+                
+                document.getElementById('closeIosPrompt').addEventListener('click', () => {
+                    prompt.style.display = 'none';
+                    // Запам'ятовуємо, що користувач закрив підказку, щоб не дратувати його знову
+                    localStorage.setItem('iosPromptDismissed', 'true');
+                });
+            }
+        }
     }
 
     async startApp() {

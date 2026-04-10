@@ -6,6 +6,10 @@
     <title>CRM Бджоляр</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
+    
+    <meta name="theme-color" content="#4CAF50">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <style>
         body { font-family: -apple-system, sans-serif; margin: 0; background: #f4f4f9; color: #333; }
@@ -56,7 +60,11 @@
     </style>
 </head>
 <body>
-
+<div id="iosInstallPrompt" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 400px; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); padding: 15px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.15); z-index: 9999; text-align: center; font-size: 14px; border: 1px solid #ddd;">
+    <button id="closeIosPrompt" style="position: absolute; top: 5px; right: 5px; background: none; border: none; font-size: 16px; color: #888; width: auto; padding: 5px; cursor: pointer;">✕</button>
+    <p style="margin: 0 0 10px 0; color: #333; font-size: 16px;"><b>Встановити CRM Бджоляр</b></p>
+    <p style="margin: 0; color: #555; line-height: 1.4;">Натисніть кнопку <b>Поділитися</b> (квадрат зі стрілкою вгору) внизу екрана, а потім виберіть <b>«На початковий екран»</b>.</p>
+</div>
 <div id="loginScreen" style="max-width: 400px; margin: 80px auto; padding: 20px; background: white; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
     <div style="text-align: center; margin-bottom: 20px;">
         <span style="font-size: 40px;">🍯</span>
@@ -256,6 +264,16 @@
         </div>
     </div>
 </div>
+
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('Service Worker зареєстровано!', reg))
+                .catch(err => console.error('Помилка реєстрації Service Worker:', err));
+        });
+    }
+</script>
 
 <script type="module" src="app.js"></script>
 </body>
