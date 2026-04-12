@@ -53,9 +53,13 @@
         #blacklistWarning { display: none; background: #ffebee; border: 1px solid #ef9a9a; color: #c62828; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; line-height: 1.4; }
         .header-btn { background: none; border: none; font-size: 26px; padding: 0 8px; border-radius: 6px; cursor: pointer; color: white; width: auto; line-height: 1; }
 
-        .tabs { display: flex; background: white; margin-bottom: 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .tab-btn { flex: 1; background: none; border: none; padding: 12px; font-weight: bold; color: #888; border-radius: 0; transition: background 0.3s ease, color 0.3s ease; }
-        .tab-btn.active { color: #333; background: #4CAF50; color: white; }
+        /* АБСОЛЮТНО МОНОЛІТНІ ВКЛАДКИ */
+        /* АБСОЛЮТНО МОНОЛІТНІ ВКЛАДКИ */
+        .tabs { display: flex; height: 50px; background: white; margin-bottom: 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); align-items: stretch; }
+        .tab-btn { flex: 1; display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; background: transparent; border: none; padding: 0; margin: 0; font-weight: bold; color: #888; font-size: 15px; cursor: pointer; transition: all 0.2s ease; outline: none; }
+        .tab-btn:hover { background: #f5f5f5; color: #333; }
+        .tab-btn.active { background: #4CAF50; color: white; }
+        .tab-btn.active:hover { background: #43A047; }
         
         .seller-chip { background: #eee; padding: 8px 12px; border-radius: 20px; font-size: 14px; cursor: pointer; border: 2px solid transparent; transition: 0.2s; color: #333; }
         .seller-chip.active { background: #fffde7; border-color: #4CAF50; color: #f57f17; font-weight: bold; }
@@ -268,7 +272,7 @@
 <div id="blacklistModal" class="modal"><div class="modal-content" style="background: #fdfaf6;"><h3 style="color: #c62828; border-bottom: 2px solid #ef9a9a; padding-bottom: 10px; margin-top: 0;">🚫 Чорний список клієнтів</h3><div id="addBlForm" style="display: none; background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 15px;"><h4 style="margin-top: 0; color: #333;">Додати клієнта в ЧС</h4><input type="text" id="blPhoneInput" placeholder="Номер телефону (0671234455)" inputmode="numeric"><input type="text" id="blNameInput" placeholder="Ім'я Прізвище (автопідтягування)"><div id="blPastOrdersInfo"></div><input type="text" id="blReasonInput" placeholder="Причина (обов'язково)"><div style="display: flex; gap: 10px; margin-top: 10px;"><button id="cancelBlBtn" class="btn-secondary">Скасувати</button><button id="saveBlBtn" class="btn-danger">Додати в ЧС</button></div></div><button id="showAddBlFormBtn" class="btn-danger" style="margin-bottom: 15px;">+ Додати порушника</button><div id="blacklistContent" style="max-height: 400px; overflow-y: auto;"></div><button id="closeBlacklistBtn" class="btn-secondary" style="margin-top: 15px;">Закрити</button></div></div>
 
 <div id="orderModalOverlay"></div>
-<div id="orderModal">
+<div id="orderModal" style="display: none;">
     <div class="drag-handle" id="orderDragHandle"><div class="drag-bar"></div></div>
     
     <div id="orderModalHeader" style="padding: 0 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 10px;">
