@@ -11,7 +11,7 @@ export class OrderForm {
         this.container = document.getElementById('itemsContainer');
         this.editingId = null;
         
-        this.currentState = 'CLOSED'; // 'CLOSED', 'MINIMIZED', 'DEFAULT', 'FULLSCREEN'
+        this.currentState = 'CLOSED'; 
         this.currentY = window.innerHeight;
         
         this.bindEvents();
@@ -64,7 +64,7 @@ export class OrderForm {
         });
 
         this.header.onclick = (e) => {
-            if (window.innerWidth >= 768) return; // Без розгортання на ПК
+            if (window.innerWidth >= 768) return; 
             if (e.target.closest('button')) return;
             if (this.currentState === 'MINIMIZED') this.snapTo('DEFAULT');
             else if (this.currentState === 'DEFAULT') this.snapTo('FULLSCREEN');
@@ -72,10 +72,8 @@ export class OrderForm {
         };
     }
 
-    // --- ЛОГІКА ТЕЛЕГРАМ-ШТОРКИ ---
-
     setTransform(y) {
-        if (window.innerWidth >= 768) return; // Не застосовуємо інлайн стилі на ПК
+        if (window.innerWidth >= 768) return; 
         
         this.currentY = y;
         this.sheet.style.transform = `translateY(${y}px)`;
@@ -117,7 +115,7 @@ export class OrderForm {
                 } 
             }, 300);
         } else if (state === 'MINIMIZED') {
-            if (isDesktop) return this.snapTo('CLOSED'); // На ПК відразу закриваємо
+            if (isDesktop) return this.snapTo('CLOSED'); 
 
             targetY = h - 70;
             this.overlay.style.opacity = '0';
@@ -139,7 +137,7 @@ export class OrderForm {
         if (!isDesktop) {
             this.setTransform(targetY);
         } else {
-            this.sheet.style.transform = ''; // Дозволяємо CSS центрувати вікно на ПК
+            this.sheet.style.transform = ''; 
         }
     }
 
@@ -151,7 +149,7 @@ export class OrderForm {
         let startTime = 0;
 
         const handleTouchStart = (e) => {
-            if (window.innerWidth >= 768) return; // Без свайпів на ПК
+            if (window.innerWidth >= 768) return; 
             
             startY = e.touches[0].clientY;
             startTranslateY = this.currentY;
@@ -225,8 +223,6 @@ export class OrderForm {
         this.sheet.addEventListener('touchend', handleTouchEnd);
     }
 
-    // ----------------------------------
-
     _cleanPhone(phone) {
         if (!phone) return '';
         let d = phone.replace(/\D/g, '');
@@ -247,6 +243,10 @@ export class OrderForm {
                 if (val.length < 2) { box.style.display = 'none'; return; }
 
                 const matches = this.core.clients.filter(c => {
+                    // ІГНОРУЄМО АРХІВНИХ ТА ПОВНІСТЮ ВИДАЛЕНИХ КЛІЄНТІВ
+                    if (c.isArchived) return false;
+                    if (!c.knownNames || c.knownNames.length === 0) return false;
+
                     if (field === 'phone') return this._cleanPhone(c.phone).includes(val);
                     
                     let namesToSearch = [];
@@ -555,11 +555,18 @@ export class OrderForm {
                 const clientSnap = await getDoc(clientRef);
                 
                 let variants = [];
+                let savedAddresses = [];
                 let ownerId = this.core.currentUser.uid;
                 
                 if (clientSnap.exists()) {
                     const data = clientSnap.data();
                     variants = data.knownNames || [];
+                    savedAddresses = data.savedAddresses || [];
+                    
+                    // Зберігаємо сумісність: переносимо стару одиночну адресу в новий масив
+                    if (data.lastDelivery && savedAddresses.length === 0) {
+                        savedAddresses.push(data.lastDelivery);
+                    }
                     if (data.sellerId) ownerId = data.sellerId;
                     
                     if (variants.length > 0 && typeof variants[0] === 'string') {
@@ -575,11 +582,35 @@ export class OrderForm {
                     variants.push({ n: name, s: this.core.currentUser.uid });
                 }
 
+                // ЛОГІКА ЗБЕРЕЖЕННЯ ВСІХ АДРЕС КЛІЄНТА
+                const newAddr = {
+                    method: orderData.deliveryMethod,
+                    type: orderData.addressType,
+                    city: orderData.city,
+                    index: orderData.index,
+                    branch: orderData.branch
+                };
+
+                // Перевіряємо, чи немає точно такої ж адреси в масиві
+                const isDuplicate = savedAddresses.some(a => 
+                    a.method === newAddr.method &&
+                    a.type === newAddr.type &&
+                    a.city === newAddr.city &&
+                    a.index === newAddr.index &&
+                    a.branch === newAddr.branch
+                );
+
+                if (!isDuplicate) {
+                    savedAddresses.push(newAddr);
+                }
+
                 await setDoc(clientRef, { 
                     name: name,
                     phone: phone, 
                     knownNames: variants,
-                    sellerId: ownerId
+                    sellerId: ownerId,
+                    savedAddresses: savedAddresses,
+                    isArchived: false // Якщо клієнт був в архіві, а тепер зробив замовлення - відновлюємо
                 }, { merge: true });
             }
 

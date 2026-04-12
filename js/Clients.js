@@ -6,7 +6,7 @@ export class ClientManager {
         this.core = core;
         this.modal = document.getElementById('clientsModal');
         this.editingId = null;
-        this.editingVariantS = null; // Запам'ятовуємо, ЧИЙ саме варіант редагуємо
+        this.editingVariantS = null; 
         this.bindEvents();
     }
 
@@ -33,28 +33,40 @@ export class ClientManager {
 
             const action = btn.dataset.action;
             const phoneId = btn.dataset.id;
-            const variantS = btn.dataset.variants; // ID юзера, якому належить варіант
+            const variantS = btn.dataset.variants; 
             
             const client = this.core.clients.find(c => c.phone && c.phone.replace(/\D/g, '').endsWith(phoneId));
             if (!client) return;
 
-            // 1. АДМІН: Повне видалення клієнта
-            if (action === 'delete-all') {
-                if (confirm(`❌ Видалити клієнта ${client.phone} повністю з усіма варіантами імен?\n\nЦю дію неможливо відмінити.`)) {
+            // 1. АДМІН: М'ЯКЕ ВИДАЛЕННЯ (В АРХІВ)
+            if (action === 'archive') {
+                if (confirm(`📦 Сховати клієнта ${client.phone} з пошуку?\n\nВін не буде видалений з бази фізично (перейде в прихований резерв).`)) {
+                    await updateDoc(doc(this.core.db, "clients", phoneId), {
+                        isArchived: true,
+                        archivedAt: Date.now()
+                    });
+                    await this.core.loadClients();
+                    this.render();
+                }
+            }
+
+            // 2. АДМІН: ЖОРСТКЕ ВИДАЛЕННЯ (НАЗАВЖДИ)
+            if (action === 'hard-delete') {
+                if (confirm(`❌ ВИДАЛИТИ НАЗАВЖДИ клієнта ${client.phone} з усіма варіантами імен?\n\nЦю дію НЕМОЖЛИВО ВІДМІНИТИ!`)) {
                     await deleteDoc(doc(this.core.db, "clients", phoneId));
                     await this.core.loadClients();
                     this.render();
                 }
             }
 
-            // 2. ВИДАЛЕННЯ КОНКРЕТНОГО ВАРІАНТУ ІМЕНІ
+            // 3. ПРОДАВЕЦЬ: ВИДАЛЕННЯ КОНКРЕТНОГО ВАРІАНТУ ІМЕНІ (ПЕРЕНЕСЕННЯ В РЕЗЕРВ)
             if (action === 'delete') {
-                if (confirm(`Видалити цей варіант імені?`)) {
+                if (confirm(`Видалити цей варіант імені? Він зникне з пошуку.`)) {
                     await this.deleteVariant(phoneId, variantS);
                 }
             }
             
-            // 3. РЕДАГУВАННЯ КОНКРЕТНОГО ВАРІАНТУ
+            // 4. РЕДАГУВАННЯ
             if (action === 'edit') {
                 this.openEdit(client, phoneId, variantS);
             }
@@ -77,19 +89,25 @@ export class ClientManager {
         const snap = await getDoc(ref);
         if (!snap.exists()) return;
 
-        let variants = snap.data().knownNames || [];
+        let data = snap.data();
+        let variants = data.knownNames || [];
+        let deletedNames = data.deletedNames || [];
+
         if (variants.length > 0 && typeof variants[0] === 'string') {
-            variants = variants.map(v => ({ n: v, s: snap.data().sellerId || 'legacy' }));
+            variants = variants.map(v => ({ n: v, s: data.sellerId || 'legacy' }));
         }
 
-        // Залишаємо всі варіанти, ОКРІМ того, який видаляємо
+        const targetVariant = variants.find(v => v.s === variantS);
+        if (targetVariant) {
+            deletedNames.push({ ...targetVariant, deletedAt: Date.now() });
+        }
+
         const newVariants = variants.filter(v => v.s !== variantS);
 
-        if (newVariants.length === 0) {
-            await deleteDoc(ref); // Якщо це було останнє ім'я - видаляємо весь документ
-        } else {
-            await updateDoc(ref, { knownNames: newVariants });
-        }
+        await updateDoc(ref, { 
+            knownNames: newVariants,
+            deletedNames: deletedNames
+        });
         
         await this.core.loadClients();
         this.render();
@@ -107,7 +125,6 @@ export class ClientManager {
             variants = variants.map(v => ({ n: v, s: client.sellerId || 'legacy' }));
         }
 
-        // Знаходимо саме те ім'я, яке хочемо редагувати
         const targetVariant = variants.find(v => v.s === variantS);
         document.getElementById('editClientName').value = targetVariant ? targetVariant.n : client.name;
         
@@ -138,7 +155,6 @@ export class ClientManager {
                 variants = variants.map(v => ({ n: v, s: oldSnap.data().sellerId || 'legacy' }));
             }
 
-            // Оновлюємо конкретний варіант імені
             const myIdx = variants.findIndex(v => v.s === this.editingVariantS);
             if (myIdx !== -1) {
                 variants[myIdx].n = newName;
@@ -147,12 +163,11 @@ export class ClientManager {
             }
 
             if (oldId !== cleanNewPhone) {
-                // Якщо змінився номер телефону — переносимо варіант
                 const newRef = doc(this.core.db, "clients", cleanNewPhone);
                 
                 const oldVariantsFiltered = variants.filter(v => v.s !== this.editingVariantS);
                 if (oldVariantsFiltered.length === 0) {
-                    await deleteDoc(oldRef); 
+                    await updateDoc(oldRef, { knownNames: [], isArchived: true }); 
                 } else {
                     await updateDoc(oldRef, { knownNames: oldVariantsFiltered });
                 }
@@ -174,11 +189,11 @@ export class ClientManager {
                     name: newName,
                     phone: newPhone,
                     knownNames: newVariants,
+                    isArchived: false,
                     sellerId: newSnap.exists() ? (newSnap.data().sellerId || this.editingVariantS) : this.editingVariantS
                 }, { merge: true });
 
             } else {
-                // Якщо номер той самий, просто зберігаємо
                 await updateDoc(oldRef, { knownNames: variants, name: newName });
             }
 
@@ -201,15 +216,17 @@ export class ClientManager {
         const isAdmin = this.core.userRole === 'admin';
 
         let list = this.core.clients.filter(c => {
+            if (c.isArchived) return false; 
             if (!c.phone) return false;
-            const cleanId = c.phone.replace(/\D/g, '').substring(c.phone.replace(/\D/g, '').length - 10);
             
+            const cleanId = c.phone.replace(/\D/g, '').substring(c.phone.replace(/\D/g, '').length - 10);
             if (cleanId === this.editingId) return false;
 
             let variants = c.knownNames || [];
             if (variants.length > 0 && typeof variants[0] === 'string') {
                 variants = variants.map(v => ({ n: v, s: c.sellerId || 'legacy' }));
             }
+            if (variants.length === 0) return false;
 
             const hasMyName = variants.some(v => v.s === uid);
             if (!isAdmin && !hasMyName) return false;
@@ -237,7 +254,6 @@ export class ClientManager {
             }
 
             if (isAdmin) {
-                // АДМІН: Бачить згруповану картку з усіма іменами і кнопкою повного видалення
                 html += `
                 <div style="background: #fff; padding: 12px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; margin-bottom: 10px;">
@@ -245,23 +261,39 @@ export class ClientManager {
                             <span style="color:#555; font-size: 14px; font-weight:bold;">📞 ${c.phone}</span><br>
                             <span style="font-size:12px; color:#888;">Основне: ${c.name}</span>
                         </div>
-                        <button class="btn-secondary btn-small" data-action="delete-all" data-id="${cleanId}" style="background:#ffebee; color:#d32f2f; margin:0; padding:6px 10px; border: 1px solid #ffcdd2;">❌ Видалити клієнта</button>
+                        <div style="display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end;">
+                            <button class="btn-secondary btn-small" data-action="archive" data-id="${cleanId}" style="background:#fff3e0; color:#e65100; margin:0; padding:6px 10px; border: 1px solid #ffe0b2;">📦 В архів</button>
+                            <button class="btn-secondary btn-small" data-action="hard-delete" data-id="${cleanId}" style="background:#ffebee; color:#d32f2f; margin:0; padding:6px 10px; border: 1px solid #ffcdd2;">❌ Знищити</button>
+                        </div>
                     </div>
                     <div>
                         <div style="font-size:11px; color:#999; margin-bottom:6px; text-transform: uppercase; letter-spacing: 0.5px;">Усі варіанти імен:</div>
-                        ${variants.map((v, i) => `
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-top: ${i > 0 ? '1px dashed #eee' : 'none'};">
-                                <span style="font-size:14px; color:#333;">👤 <b>${v.n}</b></span>
+                        ${variants.map((v, i) => {
+                            // Отримуємо ім'я продавця з AdminManager
+                            let sellerName = v.s ? "Невідомий ID: " + v.s.substring(0,4) : 'Невідомо';
+                            if (v.s === 'legacy') {
+                                sellerName = 'Стара база';
+                            } else if (this.core.admin && this.core.admin.sellers) {
+                                const sObj = this.core.admin.sellers.find(s => s.id === v.s);
+                                if (sObj) sellerName = sObj.name;
+                            }
+
+                            return `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-top: ${i > 0 ? '1px dashed #eee' : 'none'};">
+                                <div style="display: flex; flex-direction: column;">
+                                    <span style="font-size:14px; color:#333;">👤 <b>${v.n}</b></span>
+                                    <span style="font-size:11px; color:#888; margin-top:2px;">Додав: <b style="color:#1976d2;">${sellerName}</b></span>
+                                </div>
                                 <div style="display:flex; gap:5px;">
                                     <button class="btn-secondary btn-small" data-action="edit" data-id="${cleanId}" data-variants="${v.s}" style="background:#fff3e0; color:#e65100; margin:0; padding: 4px 8px;">✏️</button>
                                     <button class="btn-secondary btn-small" data-action="delete" data-id="${cleanId}" data-variants="${v.s}" style="background:#fff; border: 1px solid #ffcdd2; color:#d32f2f; margin:0; padding: 4px 8px;">🗑️</button>
                                 </div>
                             </div>
-                        `).join('')}
+                            `;
+                        }).join('')}
                     </div>
                 </div>`;
             } else {
-                // ПРОДАВЕЦЬ: Бачить лише свій варіант як звичайну картку
                 const myVariant = variants.find(v => v.s === uid);
                 if (!myVariant) return;
 

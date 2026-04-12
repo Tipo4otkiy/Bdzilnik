@@ -155,7 +155,11 @@ export class OrderList {
         this.historyContainer.addEventListener('click', handleOrderActions);
         document.getElementById('deletedContent').addEventListener('click', handleOrderActions);
 
-        document.getElementById('closeTtnBtn').onclick = () => document.getElementById('ttnModal').style.display = 'none';
+        const hideTtnModal = () => document.getElementById('ttnModal').style.display = 'none';
+        document.getElementById('closeTtnBtn').onclick = hideTtnModal;
+        const closeTtnTop = document.getElementById('closeTtnTopBtn');
+        if (closeTtnTop) closeTtnTop.onclick = hideTtnModal;
+
         document.getElementById('saveTtnBtn').onclick = async () => {
             const ttn = document.getElementById('ttnInput').value.trim().toUpperCase();
             if (ttn.length < 10) return alert("ТТН має містити мінімум 10 символів!");

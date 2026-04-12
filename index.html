@@ -53,13 +53,21 @@
         #blacklistWarning { display: none; background: #ffebee; border: 1px solid #ef9a9a; color: #c62828; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; line-height: 1.4; }
         .header-btn { background: none; border: none; font-size: 26px; padding: 0 8px; border-radius: 6px; cursor: pointer; color: white; width: auto; line-height: 1; }
 
-        /* АБСОЛЮТНО МОНОЛІТНІ ВКЛАДКИ */
+        /* ЄДИНА КНОПКА-ХРЕСТИК ДЛЯ ВСІХ МОДАЛОК */
+        .close-modal-btn { background: transparent !important; border: none !important; color: #888 !important; font-size: 24px !important; cursor: pointer !important; padding: 0 5px !important; margin: 0 !important; width: auto !important; box-shadow: none !important; line-height: 1 !important; transition: color 0.2s !important; }
+        .close-modal-btn:hover { color: #d32f2f !important; }
+
         /* АБСОЛЮТНО МОНОЛІТНІ ВКЛАДКИ */
         .tabs { display: flex; height: 50px; background: white; margin-bottom: 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); align-items: stretch; }
         .tab-btn { flex: 1; display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; background: transparent; border: none; padding: 0; margin: 0; font-weight: bold; color: #888; font-size: 15px; cursor: pointer; transition: all 0.2s ease; outline: none; }
         .tab-btn:hover { background: #f5f5f5; color: #333; }
         .tab-btn.active { background: #4CAF50; color: white; }
         .tab-btn.active:hover { background: #43A047; }
+        
+        .slide-to-history { animation: slideLeft 0.25s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; }
+        .slide-to-active { animation: slideRight 0.25s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; }
+        @keyframes slideLeft { 0% { opacity: 0; transform: translateX(30px); } 100% { opacity: 1; transform: translateX(0); } }
+        @keyframes slideRight { 0% { opacity: 0; transform: translateX(-30px); } 100% { opacity: 1; transform: translateX(0); } }
         
         .seller-chip { background: #eee; padding: 8px 12px; border-radius: 20px; font-size: 14px; cursor: pointer; border: 2px solid transparent; transition: 0.2s; color: #333; }
         .seller-chip.active { background: #fffde7; border-color: #4CAF50; color: #f57f17; font-weight: bold; }
@@ -265,13 +273,100 @@
     <button id="scrollTopBtn">↑</button>
 </div>
 
-<div id="ttnModal" class="modal" style="align-items: center;"><div class="modal-content"><h3 style="color:#333;">Додати ТТН</h3><input type="text" id="ttnInput" placeholder="Введіть номер накладної..."><div style="display: flex; gap: 10px; margin-top: 15px;"><button id="closeTtnBtn" class="btn-secondary">Скасувати</button><button id="saveTtnBtn">Зберегти</button></div></div></div>
-<div id="settingsModal" class="modal"><div class="modal-content"><h3 style="color:#333;">Налаштування</h3><label style="font-size: 12px; font-weight: bold; color: #666; display: block; margin-top: 5px;">Мої товари (Пресет)</label><div id="presetsList"></div><button id="addPresetBtn" class="btn-secondary" style="margin-top: 10px;">+ Додати товар</button><hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;"><button id="saveSettingsBtn">Зберегти налаштування</button><button id="closeSettingsBtn" class="btn-secondary" style="margin-top: 10px;">Закрити</button></div></div>
-<div id="clientsModal" class="modal"><div class="modal-content" style="background: #fdfaf6;"><div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; margin-bottom: 15px;"><h3 style="margin: 0; color: #333;">👥 Моя база клієнтів</h3><button id="closeClientsBtn" class="btn-secondary btn-small" style="margin:0;">✕</button></div><input type="text" id="clientsSearch" placeholder="🔍 Пошук клієнта..." style="margin-bottom: 15px; background: white;"><div id="clientEditForm" style="display: none; background: white; padding: 15px; border-radius: 8px; border: 1px solid #4caf50; margin-bottom: 15px;"><h4 style="margin-top: 0; color: #2e7d32;">✏️ Редагування</h4><input type="hidden" id="editClientOldId"><input type="text" id="editClientPhone" placeholder="📞 Телефон" inputmode="numeric"><input type="text" id="editClientName" placeholder="👤 Ім'я клієнта"><div style="display: flex; gap: 10px; margin-top: 10px;"><button id="cancelClientEditBtn" class="btn-secondary">Скасувати</button><button id="saveClientEditBtn">Зберегти</button></div></div><div id="clientsContent" style="max-height: 50vh; overflow-y: auto; padding-right: 5px;"></div></div></div>
-<div id="deletedModal" class="modal"><div class="modal-content" style="background: #fdfaf6; padding-bottom: 20px;"><div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; margin-bottom: 15px;"><h3 style="margin: 0; color: #555;">🗑️ Кошик (Видалені)</h3><button id="closeDeletedBtn" class="btn-secondary btn-small" style="margin:0;">Закрити</button></div><div style="position: relative; display: flex; gap: 8px; margin-bottom: 10px;"><input type="text" id="deletedSearch" placeholder="🔍 Пошук у кошику..." style="background: white; flex: 1; margin: 0; padding: 10px; border: 1px solid #ddd; border-radius: 8px;"><button id="openDeletedSortBtn" class="btn-secondary" style="width: 42px; height: 42px; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; border: 1px solid #ddd; background: white; border-radius: 8px;">🎛️</button><div id="deletedSortDropdown" style="display: none; position: absolute; top: 50px; right: 0; background: white; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.2); border: 1px solid #eee; padding: 15px; width: 230px; z-index: 1000; flex-direction: column; gap: 12px;"><label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; font-weight: bold; color: #e65100;"><input type="checkbox" id="deletedShowUrgent" checked style="width: 18px; height: 18px; margin: 0;">🔥 Відображати термінові</label><div style="height: 1px; background: #eee; width: 100%;"></div><div style="display: flex; gap: 8px; align-items: center;"><select id="deletedSortField" style="flex: 1; margin: 0; padding: 8px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; outline: none;"><option value="date">📅 За датою</option><option value="name">👤 За ім'ям</option><option value="sum">💰 За сумою</option></select><button id="deletedSortOrderBtn" class="btn-secondary" style="width: 36px; height: 36px; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; border-radius: 6px; border: 1px solid #ddd; background: #fff;">⬇️</button></div></div></div><div id="deletedContent" style="max-height: 55vh; overflow-y: auto; padding-right: 5px;"></div></div></div>
-<div id="blacklistModal" class="modal"><div class="modal-content" style="background: #fdfaf6;"><h3 style="color: #c62828; border-bottom: 2px solid #ef9a9a; padding-bottom: 10px; margin-top: 0;">🚫 Чорний список клієнтів</h3><div id="addBlForm" style="display: none; background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 15px;"><h4 style="margin-top: 0; color: #333;">Додати клієнта в ЧС</h4><input type="text" id="blPhoneInput" placeholder="Номер телефону (0671234455)" inputmode="numeric"><input type="text" id="blNameInput" placeholder="Ім'я Прізвище (автопідтягування)"><div id="blPastOrdersInfo"></div><input type="text" id="blReasonInput" placeholder="Причина (обов'язково)"><div style="display: flex; gap: 10px; margin-top: 10px;"><button id="cancelBlBtn" class="btn-secondary">Скасувати</button><button id="saveBlBtn" class="btn-danger">Додати в ЧС</button></div></div><button id="showAddBlFormBtn" class="btn-danger" style="margin-bottom: 15px;">+ Додати порушника</button><div id="blacklistContent" style="max-height: 400px; overflow-y: auto;"></div><button id="closeBlacklistBtn" class="btn-secondary" style="margin-top: 15px;">Закрити</button></div></div>
+<div id="ttnModal" class="modal" style="align-items: center;">
+    <div class="modal-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
+            <h3 style="margin: 0; color:#333;">Додати ТТН</h3>
+            <button id="closeTtnTopBtn" class="close-modal-btn">✕</button>
+        </div>
+        <input type="text" id="ttnInput" placeholder="Введіть номер накладної...">
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button id="closeTtnBtn" class="btn-secondary">Скасувати</button>
+            <button id="saveTtnBtn">Зберегти</button>
+        </div>
+    </div>
+</div>
 
-<div id="orderModalOverlay"></div>
+<div id="settingsModal" class="modal">
+    <div class="modal-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
+            <h3 style="margin: 0; color:#333;">Налаштування</h3>
+            <button id="closeSettingsBtn" class="close-modal-btn">✕</button>
+        </div>
+        <label style="font-size: 12px; font-weight: bold; color: #666; display: block; margin-top: 5px;">Мої товари (Пресет)</label>
+        <div id="presetsList"></div>
+        <button id="addPresetBtn" class="btn-secondary" style="margin-top: 10px;">+ Додати товар</button>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+        <button id="saveSettingsBtn">Зберегти налаштування</button>
+    </div>
+</div>
+
+<div id="clientsModal" class="modal">
+    <div class="modal-content" style="background: #fdfaf6;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; margin-bottom: 15px;">
+            <h3 style="margin: 0; color: #333;">👥 Моя база клієнтів</h3>
+            <button id="closeClientsBtn" class="close-modal-btn">✕</button>
+        </div>
+        <input type="text" id="clientsSearch" placeholder="🔍 Пошук клієнта..." style="margin-bottom: 15px; background: white;">
+        <div id="clientEditForm" style="display: none; background: white; padding: 15px; border-radius: 8px; border: 1px solid #4caf50; margin-bottom: 15px;">
+            <h4 style="margin-top: 0; color: #2e7d32;">✏️ Редагування</h4>
+            <input type="hidden" id="editClientOldId">
+            <input type="text" id="editClientPhone" placeholder="📞 Телефон" inputmode="numeric">
+            <input type="text" id="editClientName" placeholder="👤 Ім'я клієнта">
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button id="cancelClientEditBtn" class="btn-secondary">Скасувати</button>
+                <button id="saveClientEditBtn">Зберегти</button>
+            </div>
+        </div>
+        <div id="clientsContent" style="max-height: 50vh; overflow-y: auto; padding-right: 5px;"></div>
+    </div>
+</div>
+
+<div id="deletedModal" class="modal">
+    <div class="modal-content" style="background: #fdfaf6; padding-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; margin-bottom: 15px;">
+            <h3 style="margin: 0; color: #555;">🗑️ Кошик (Видалені)</h3>
+            <button id="closeDeletedBtn" class="close-modal-btn">✕</button>
+        </div>
+        <div style="position: relative; display: flex; gap: 8px; margin-bottom: 10px;">
+            <input type="text" id="deletedSearch" placeholder="🔍 Пошук у кошику..." style="background: white; flex: 1; margin: 0; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+            <button id="openDeletedSortBtn" class="btn-secondary" style="width: 42px; height: 42px; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; border: 1px solid #ddd; background: white; border-radius: 8px;">🎛️</button>
+            <div id="deletedSortDropdown" style="display: none; position: absolute; top: 50px; right: 0; background: white; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.2); border: 1px solid #eee; padding: 15px; width: 230px; z-index: 1000; flex-direction: column; gap: 12px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; font-weight: bold; color: #e65100;"><input type="checkbox" id="deletedShowUrgent" checked style="width: 18px; height: 18px; margin: 0;">🔥 Відображати термінові</label>
+                <div style="height: 1px; background: #eee; width: 100%;"></div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <select id="deletedSortField" style="flex: 1; margin: 0; padding: 8px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; outline: none;"><option value="date">📅 За датою</option><option value="name">👤 За ім'ям</option><option value="sum">💰 За сумою</option></select>
+                    <button id="deletedSortOrderBtn" class="btn-secondary" style="width: 36px; height: 36px; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; border-radius: 6px; border: 1px solid #ddd; background: #fff;">⬇️</button>
+                </div>
+            </div>
+        </div>
+        <div id="deletedContent" style="max-height: 55vh; overflow-y: auto; padding-right: 5px;"></div>
+    </div>
+</div>
+
+<div id="blacklistModal" class="modal">
+    <div class="modal-content" style="background: #fdfaf6;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ef9a9a; padding-bottom: 10px; margin-bottom: 15px;">
+            <h3 style="margin: 0; color: #c62828;">🚫 Чорний список клієнтів</h3>
+            <button id="closeBlacklistBtn" class="close-modal-btn">✕</button>
+        </div>
+        <div id="addBlForm" style="display: none; background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 15px;">
+            <h4 style="margin-top: 0; color: #333;">Додати клієнта в ЧС</h4>
+            <input type="text" id="blPhoneInput" placeholder="Номер телефону (0671234455)" inputmode="numeric">
+            <input type="text" id="blNameInput" placeholder="Ім'я Прізвище (автопідтягування)">
+            <div id="blPastOrdersInfo"></div> 
+            <input type="text" id="blReasonInput" placeholder="Причина (обов'язково)">
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button id="cancelBlBtn" class="btn-secondary">Скасувати</button>
+                <button id="saveBlBtn" class="btn-danger">Додати в ЧС</button>
+            </div>
+        </div>
+        <button id="showAddBlFormBtn" class="btn-danger" style="margin-bottom: 15px;">+ Додати порушника</button>
+        <div id="blacklistContent" style="max-height: 400px; overflow-y: auto;"></div>
+    </div>
+</div>
+
+<div id="orderModalOverlay" style="display: none;"></div>
 <div id="orderModal" style="display: none;">
     <div class="drag-handle" id="orderDragHandle"><div class="drag-bar"></div></div>
     
@@ -280,7 +375,7 @@
             <span id="orderModalTitleText">Нове замовлення</span>
             <span id="expandHint">🔼 Розгорнути</span>
         </h3>
-        <button id="closeOrderTopBtn" style="background: transparent; border: none; color: #888; font-size: 22px; cursor: pointer; padding: 0 5px; margin: 0; width: auto; box-shadow: none;">✕</button>
+        <button id="closeOrderTopBtn" class="close-modal-btn">✕</button>
     </div>
 
     <div class="modal-scrollable-content">
@@ -344,11 +439,11 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        // --- 1. ШТОРКА МЕНЮ ---
+        // --- 1. ШТОРКА МЕНЮ (Зліва) ---
         const menuToggleBtn = document.getElementById('menuToggleBtn');
         const sideMenuOverlay = document.getElementById('sideMenuOverlay');
         const sideMenu = document.getElementById('sideMenu');
-        let isMenuOpen = false; // ПРАПОРЕЦЬ ДЛЯ ЗАХИСТУ ВІД СВАЙПІВ КАРУСЕЛІ
+        let isMenuOpen = false;
         
         const openMenu = () => {
             isMenuOpen = true;
@@ -442,7 +537,7 @@
         let isTrackDragging = false;
 
         document.addEventListener('touchstart', (e) => {
-            if (isMenuOpen) return; // ЗАХИСТ ВІД СВАЙПІВ ПРИ ВІДКРИТОМУ МЕНЮ
+            if (isMenuOpen) return; 
             if (e.target.closest('.modal') || e.target.closest('#orderModal') || e.target.closest('#sideMenuOverlay') || e.target.closest('#sideMenu')) return;
             if (e.touches[0].clientX < 20) return; 
             
