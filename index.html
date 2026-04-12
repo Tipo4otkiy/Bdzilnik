@@ -15,7 +15,9 @@
         /* ПРИБИРАЄМО СИНЄ ВИДІЛЕННЯ ПРИ КЛІКУ НА ТЕЛЕФОНІ */
         * { -webkit-tap-highlight-color: transparent; outline: none; }
         
-        body { font-family: -apple-system, sans-serif; margin: 0; background: #f4f4f9; color: #333; overflow-x: hidden; }
+        /* ЖЕЛЕЗОБЕТОННЕ БЛОКУВАННЯ СИСТЕМНИХ СВАЙПІВ (ВГОРУ/ВНИЗ І ВЛІВО/ВПРАВО) */
+        body { font-family: -apple-system, sans-serif; margin: 0; background: #f4f4f9; color: #333; overflow-x: hidden; overscroll-behavior-y: none; overscroll-behavior-x: none; }
+        
         header { background: #4CAF50; padding: 10px 15px; position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 5px rgba(0,0,0,0.1); color: white; }
         .header-content { display: flex; justify-content: space-between; align-items: center; }
         .user-info { font-size: 13px; text-align: right; line-height: 1.2; margin-right: 5px; }
@@ -35,14 +37,7 @@
         .item-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
         .fab { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; border-radius: 50%; background: #4CAF50; border: none; font-size: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 50; color: white; }
         
-        /* КНОПКА СКРОЛУ ВГОРУ */
-        #scrollTopBtn {
-            position: fixed; bottom: 90px; right: 20px; width: 45px; height: 45px;
-            background: #333; color: white; border: none; border-radius: 50%;
-            font-size: 24px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            z-index: 49; opacity: 0; pointer-events: none; transition: 0.3s;
-            display: flex; justify-content: center; align-items: center; cursor: pointer;
-        }
+        #scrollTopBtn { position: fixed; bottom: 90px; right: 20px; width: 45px; height: 45px; background: #333; color: white; border: none; border-radius: 50%; font-size: 24px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 49; opacity: 0; pointer-events: none; transition: 0.3s; display: flex; justify-content: center; align-items: center; cursor: pointer; }
         #scrollTopBtn.visible { opacity: 0.8; pointer-events: auto; }
 
         .autocomplete-wrapper { position: relative; width: 100%; margin-bottom: 5px; }
@@ -61,9 +56,23 @@
         #blacklistWarning { display: none; background: #ffebee; border: 1px solid #ef9a9a; color: #c62828; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; line-height: 1.4; }
         .header-btn { background: none; border: none; font-size: 24px; padding: 0 8px; border-radius: 6px; cursor: pointer; color: white; width: auto; line-height: 1; }
 
+        /* ОНОВЛЕНІ ВКЛАДКИ З АНІМАЦІЄЮ ПЕРЕХОДУ КОЛЬОРІВ */
         .tabs { display: flex; background: white; margin-bottom: 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .tab-btn { flex: 1; background: none; border: none; padding: 12px; font-weight: bold; color: #888; border-radius: 0; }
+        .tab-btn { flex: 1; background: none; border: none; padding: 12px; font-weight: bold; color: #888; border-radius: 0; transition: background 0.3s ease, color 0.3s ease; }
         .tab-btn.active { color: #333; background: #4CAF50; color: white; }
+        
+        /* ПЛАВНІ АНІМАЦІЇ ДЛЯ КОНТЕНТУ ПРИ СВАЙПІ / КЛІКУ */
+        .slide-to-history { animation: slideLeft 0.25s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; }
+        .slide-to-active { animation: slideRight 0.25s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; }
+        
+        @keyframes slideLeft {
+            0% { opacity: 0; transform: translateX(30px); }
+            100% { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes slideRight {
+            0% { opacity: 0; transform: translateX(-30px); }
+            100% { opacity: 1; transform: translateX(0); }
+        }
         
         .seller-chip { background: #eee; padding: 8px 12px; border-radius: 20px; font-size: 14px; cursor: pointer; border: 2px solid transparent; transition: 0.2s; color: #333; }
         .seller-chip.active { background: #fffde7; border-color: #4CAF50; color: #f57f17; font-weight: bold; }
@@ -82,7 +91,6 @@
         .menu-item-btn { background: transparent !important; color: #333 !important; text-align: left !important; padding: 18px 20px !important; font-size: 16px !important; border-bottom: 1px solid #f0f0f0 !important; border-radius: 0 !important; font-weight: 500 !important; width: 100% !important; display: block !important; box-shadow: none !important; transition: background 0.2s !important; }
         .menu-item-btn:hover, .menu-item-btn:active { background: #f5f5f5 !important; }
 
-        /* ОНОВЛЕНІ СТИЛІ ДЛЯ "НОВОГО ЗАМОВЛЕННЯ" (Шторка знизу) */
         #orderModalOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; opacity: 0; transition: opacity 0.3s; }
         #orderModal {
             display: flex !important; position: fixed; top: auto; bottom: 0; left: 0; right: 0; 
@@ -92,14 +100,14 @@
             flex-direction: column; justify-content: flex-start; align-items: stretch; margin: 0;
         }
         #orderModal.minimized { transform: translateY(calc(100% - 70px)); }
-        .drag-handle { width: 100%; height: 25px; display: flex; justify-content: center; align-items: center; cursor: grab; flex-shrink: 0; padding-top: 5px; }
+        .drag-handle { width: 100%; height: 25px; display: flex; justify-content: center; align-items: center; cursor: grab; flex-shrink: 0; padding-top: 5px; touch-action: none; }
         .drag-bar { width: 40px; height: 5px; background: #ddd; border-radius: 3px; }
         .modal-scrollable-content { overflow-y: auto; padding: 0 20px 50px 20px; flex: 1; }
         
         #expandHint { display: none; font-size: 13px; color: #4CAF50; background: #e8f5e9; padding: 4px 10px; border-radius: 12px; margin-left: 10px; font-weight: bold; }
         #orderModal.minimized #expandHint { display: inline-block; }
         #orderModal.minimized #orderModalTitleText { font-size: 16px; }
-        #orderModalHeader { cursor: pointer; }
+        #orderModalHeader { cursor: pointer; touch-action: none; }
     </style>
 </head>
 <body>
@@ -235,7 +243,8 @@
     </main>
     
     <button id="fabBtn" class="fab">+</button>
-    <button id="scrollTopBtn">↑</button> </div>
+    <button id="scrollTopBtn">↑</button>
+</div>
 
 <div id="ttnModal" class="modal" style="align-items: center;">
     <div class="modal-content">
@@ -412,7 +421,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        // --- Логіка бокового меню (Шторки) зі свайпом ---
+        // --- 1. ШТОРКА МЕНЮ ---
         const menuToggleBtn = document.getElementById('menuToggleBtn');
         const sideMenuOverlay = document.getElementById('sideMenuOverlay');
         const sideMenu = document.getElementById('sideMenu');
@@ -424,7 +433,6 @@
                 sideMenu.style.transform = 'translateX(0)';
             }, 10);
         };
-        
         const closeMenu = () => {
             sideMenu.style.transform = 'translateX(100%)';
             sideMenuOverlay.style.opacity = '0';
@@ -435,48 +443,95 @@
         sideMenuOverlay.onclick = closeMenu;
         document.querySelectorAll('.menu-item-btn').forEach(btn => btn.addEventListener('click', closeMenu));
 
-        let startX = 0, currentX = 0, isDragging = false;
+        let smStartX = 0, smCurrentX = 0, smDragging = false;
         sideMenu.addEventListener('touchstart', (e) => {
-            startX = e.touches[0].clientX; currentX = startX; isDragging = true;
+            smStartX = e.touches[0].clientX; smCurrentX = smStartX; smDragging = true;
             sideMenu.style.transition = 'none';
         }, { passive: true });
 
         sideMenu.addEventListener('touchmove', (e) => {
-            if (!isDragging) return;
-            currentX = e.touches[0].clientX;
-            let deltaX = currentX - startX;
+            if (!smDragging) return;
+            smCurrentX = e.touches[0].clientX;
+            let deltaX = smCurrentX - smStartX;
             if (deltaX > 0) sideMenu.style.transform = `translateX(${deltaX}px)`;
         }, { passive: true });
 
         sideMenu.addEventListener('touchend', (e) => {
-            if (!isDragging) return;
-            isDragging = false;
+            if (!smDragging) return;
+            smDragging = false;
             sideMenu.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-            if (currentX - startX > 60) closeMenu();
+            if (smCurrentX - smStartX > 60) closeMenu();
             else sideMenu.style.transform = 'translateX(0)';
         });
 
-        // --- Логіка свайпу між вкладками (Поточні / Історія) ---
+        // --- 2. АНІМАЦІЇ КЛІКУ ПО ВКЛАДКАХ ---
+        const tabActiveBtn = document.getElementById('tabActiveBtn');
+        const tabHistoryBtn = document.getElementById('tabHistoryBtn');
+        const appContent = document.getElementById('appContent');
+        const historyAnalytics = document.getElementById('historyAnalytics');
+
+        tabActiveBtn.addEventListener('click', function() {
+            if (!this.classList.contains('active')) {
+                appContent.classList.remove('slide-to-history', 'slide-to-active');
+                void appContent.offsetWidth; // Магія для перезапуску CSS анімації
+                appContent.classList.add('slide-to-active');
+            }
+        });
+
+        tabHistoryBtn.addEventListener('click', function() {
+            if (!this.classList.contains('active')) {
+                appContent.classList.remove('slide-to-history', 'slide-to-active');
+                void appContent.offsetWidth; 
+                appContent.classList.add('slide-to-history');
+                
+                // Якщо є блок аналітики, його теж плавно виводимо
+                if(historyAnalytics) {
+                    historyAnalytics.classList.remove('slide-to-history');
+                    void historyAnalytics.offsetWidth;
+                    historyAnalytics.classList.add('slide-to-history');
+                }
+            }
+        });
+
+        // --- 3. ЖЕЛЕЗОБЕТОННИЙ СВАЙП МІЖ ВКЛАДКАМИ ---
         const mainEl = document.querySelector('main');
         let mainStartX = 0, mainStartY = 0;
 
         mainEl.addEventListener('touchstart', (e) => {
             if (e.target.closest('.modal') || e.target.closest('#orderModal')) return;
-            mainStartX = e.touches[0].clientX; mainStartY = e.touches[0].clientY;
+            mainStartX = e.touches[0].clientX; 
+            mainStartY = e.touches[0].clientY;
         }, { passive: true });
+
+        // Блокуємо браузерні дії (назад/вперед) при горизонтальному свайпі
+        mainEl.addEventListener('touchmove', (e) => {
+            if (e.target.closest('.modal') || e.target.closest('#orderModal')) return;
+            let deltaX = e.touches[0].clientX - mainStartX;
+            let deltaY = e.touches[0].clientY - mainStartY;
+            
+            // Якщо кут нахилу пальця явно горизонтальний - повністю вбиваємо поведінку браузера
+            if (Math.abs(deltaX) > Math.abs(deltaY) * 1.5 && Math.abs(deltaX) > 10) {
+                if (e.cancelable) e.preventDefault();
+            }
+        }, { passive: false });
 
         mainEl.addEventListener('touchend', (e) => {
             if (e.target.closest('.modal') || e.target.closest('#orderModal')) return;
             let deltaX = e.changedTouches[0].clientX - mainStartX;
             let deltaY = e.changedTouches[0].clientY - mainStartY;
 
-            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 70) {
-                if (deltaX > 0) document.getElementById('tabActiveBtn').click(); // Свайп вправо
-                else document.getElementById('tabHistoryBtn').click(); // Свайп вліво
+            // Сувора перевірка: X має бути в 1.5 рази більшим за Y, мінімальна довжина свайпу 40px
+            if (Math.abs(deltaX) > Math.abs(deltaY) * 1.5 && Math.abs(deltaX) > 40) {
+                const isHistory = tabHistoryBtn.classList.contains('active');
+                if (deltaX > 0 && isHistory) { 
+                    tabActiveBtn.click(); // Свайп вправо 👉
+                } else if (deltaX < 0 && !isHistory) { 
+                    tabHistoryBtn.click(); // Свайп вліво 👈
+                }
             }
         }, { passive: true });
 
-        // --- Кнопка "Вгору" ---
+        // --- 4. КНОПКА "ВГОРУ" ---
         const scrollTopBtn = document.getElementById('scrollTopBtn');
         window.addEventListener('scroll', () => {
             if (window.scrollY > 400) scrollTopBtn.classList.add('visible');
