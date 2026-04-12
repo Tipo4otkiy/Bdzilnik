@@ -196,26 +196,33 @@ export class OrderForm {
             isDraggingSheet = false;
             
             let deltaY = e.changedTouches[0].clientY - startY;
-            let velocity = deltaY / (Date.now() - startTime);
+            let timeDelta = Date.now() - startTime;
+            if (timeDelta === 0) timeDelta = 1; // Защита от деления на 0
+            
+            let velocity = deltaY / timeDelta;
             const h = window.innerHeight;
 
-            if (velocity > 0.6) {
-                if (this.currentState === 'FULLSCREEN') this.snapTo('DEFAULT');
-                else this.snapTo('MINIMIZED');
-            } else if (velocity < -0.6) {
-                if (this.currentState === 'MINIMIZED') this.snapTo('DEFAULT');
-                else this.snapTo('FULLSCREEN');
-            } else {
-                let pos = this.currentY;
-                let distFull = Math.abs(pos - 0);
-                let distDef = Math.abs(pos - h * 0.15);
-                let distMin = Math.abs(pos - (h - 70));
+            // ФИЗИКА ИНЕРЦИИ
+            // Умножаем скорость пальца на коэффициент инерции (400мс)
+            // Это "бросает" шторку вперед и позволяет перелетать через состояния
+            let projectedY = this.currentY + (velocity * 400);
 
-                let min = Math.min(distFull, distDef, distMin);
-                if (min === distFull) this.snapTo('FULLSCREEN');
-                else if (min === distDef) this.snapTo('DEFAULT');
-                else this.snapTo('MINIMIZED');
-            }
+            // Наши 3 точки притяжения
+            const FULLSCREEN_Y = 0;
+            const DEFAULT_Y = h * 0.15;
+            const MINIMIZED_Y = h - 70;
+
+            // Считаем, к какой точке предполагаемое место остановки ближе
+            let distFull = Math.abs(projectedY - FULLSCREEN_Y);
+            let distDef = Math.abs(projectedY - DEFAULT_Y);
+            let distMin = Math.abs(projectedY - MINIMIZED_Y);
+
+            let min = Math.min(distFull, distDef, distMin);
+            
+            // Примагничиваем к нужной точке
+            if (min === distFull) this.snapTo('FULLSCREEN');
+            else if (min === distDef) this.snapTo('DEFAULT');
+            else this.snapTo('MINIMIZED');
         };
 
         this.sheet.addEventListener('touchstart', handleTouchStart, { passive: true });
@@ -243,7 +250,6 @@ export class OrderForm {
                 if (val.length < 2) { box.style.display = 'none'; return; }
 
                 const matches = this.core.clients.filter(c => {
-                    // ІГНОРУЄМО АРХІВНИХ ТА ПОВНІСТЮ ВИДАЛЕНИХ КЛІЄНТІВ
                     if (c.isArchived) return false;
                     if (!c.knownNames || c.knownNames.length === 0) return false;
 
@@ -563,7 +569,6 @@ export class OrderForm {
                     variants = data.knownNames || [];
                     savedAddresses = data.savedAddresses || [];
                     
-                    // Зберігаємо сумісність: переносимо стару одиночну адресу в новий масив
                     if (data.lastDelivery && savedAddresses.length === 0) {
                         savedAddresses.push(data.lastDelivery);
                     }
@@ -582,7 +587,6 @@ export class OrderForm {
                     variants.push({ n: name, s: this.core.currentUser.uid });
                 }
 
-                // ЛОГІКА ЗБЕРЕЖЕННЯ ВСІХ АДРЕС КЛІЄНТА
                 const newAddr = {
                     method: orderData.deliveryMethod,
                     type: orderData.addressType,
@@ -591,7 +595,6 @@ export class OrderForm {
                     branch: orderData.branch
                 };
 
-                // Перевіряємо, чи немає точно такої ж адреси в масиві
                 const isDuplicate = savedAddresses.some(a => 
                     a.method === newAddr.method &&
                     a.type === newAddr.type &&
@@ -610,7 +613,7 @@ export class OrderForm {
                     knownNames: variants,
                     sellerId: ownerId,
                     savedAddresses: savedAddresses,
-                    isArchived: false // Якщо клієнт був в архіві, а тепер зробив замовлення - відновлюємо
+                    isArchived: false
                 }, { merge: true });
             }
 
