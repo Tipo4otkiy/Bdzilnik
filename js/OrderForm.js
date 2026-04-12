@@ -197,29 +197,28 @@ export class OrderForm {
             
             let deltaY = e.changedTouches[0].clientY - startY;
             let timeDelta = Date.now() - startTime;
-            if (timeDelta === 0) timeDelta = 1; // Защита от деления на 0
+            if (timeDelta === 0) timeDelta = 1; 
             
             let velocity = deltaY / timeDelta;
             const h = window.innerHeight;
 
-            // ФИЗИКА ИНЕРЦИИ
-            // Умножаем скорость пальца на коэффициент инерции (400мс)
-            // Это "бросает" шторку вперед и позволяет перелетать через состояния
-            let projectedY = this.currentY + (velocity * 400);
+            // ЧИСТА ФІЗИКА (без жорстких кроків)
+            // Обчислюємо віртуальну точку, куди б полетіла шторка за інерцією
+            let projectedY = this.currentY + (velocity * 350);
 
-            // Наши 3 точки притяжения
+            // Наші три магнітні точки
             const FULLSCREEN_Y = 0;
             const DEFAULT_Y = h * 0.15;
             const MINIMIZED_Y = h - 70;
 
-            // Считаем, к какой точке предполагаемое место остановки ближе
+            // Шукаємо, до якої точки "долетіла" б шторка
             let distFull = Math.abs(projectedY - FULLSCREEN_Y);
             let distDef = Math.abs(projectedY - DEFAULT_Y);
             let distMin = Math.abs(projectedY - MINIMIZED_Y);
 
             let min = Math.min(distFull, distDef, distMin);
             
-            // Примагничиваем к нужной точке
+            // Примагнічуємо до найближчої
             if (min === distFull) this.snapTo('FULLSCREEN');
             else if (min === distDef) this.snapTo('DEFAULT');
             else this.snapTo('MINIMIZED');
