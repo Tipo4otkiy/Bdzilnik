@@ -81,7 +81,7 @@
         .menu-item-btn { background: transparent !important; color: #333 !important; text-align: left !important; padding: 18px 20px !important; font-size: 16px !important; border-bottom: 1px solid #f0f0f0 !important; border-radius: 0 !important; font-weight: 500 !important; width: 100% !important; display: block !important; box-shadow: none !important; transition: background 0.2s !important; }
         .menu-item-btn:hover, .menu-item-btn:active { background: #f5f5f5 !important; }
 
-        /* TELEGRAM-ШТОРКА ЗАМОВЛЕННЯ (Мобільна версія за замовчуванням) */
+        /* TELEGRAM-ШТОРКА ЗАМОВЛЕННЯ */
         #orderModalOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; opacity: 0; transition: opacity 0.3s; }
         #orderModal {
             position: fixed; top: 0; left: 0; right: 0; 
@@ -99,16 +99,16 @@
         #orderModalTitleText { font-size: 19px; transition: font-size 0.2s; }
         #orderModalHeader { cursor: pointer; touch-action: none; }
 
-        /* ПОВЕРНЕННЯ КЛАСИЧНОГО ВИГЛЯДУ ДЛЯ ПК (Відключаємо шторку на великих екранах) */
+        /* ПОВЕРНЕННЯ КЛАСИЧНОГО ВИГЛЯДУ ДЛЯ ПК */
         @media (min-width: 768px) {
             #orderModal {
                 top: 50%; left: 50%; bottom: auto; right: auto;
                 width: 95%; max-width: 600px; height: auto; max-height: 90vh;
-                transform: translate(-50%, -50%) !important; /* Жорстке центрування CSS */
+                transform: translate(-50%, -50%) !important; 
                 border-radius: 16px !important;
                 box-shadow: 0 10px 30px rgba(0,0,0,0.3);
                 opacity: 0;
-                transition: opacity 0.2s ease !important; /* Міняємо свайп на звичайне проявлення */
+                transition: opacity 0.2s ease !important; 
             }
             .drag-handle { display: none !important; }
             #expandHint { display: none !important; }
@@ -340,16 +340,19 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        // --- 1. ШТОРКА МЕНЮ (Зліва) ---
+        // --- 1. ШТОРКА МЕНЮ ---
         const menuToggleBtn = document.getElementById('menuToggleBtn');
         const sideMenuOverlay = document.getElementById('sideMenuOverlay');
         const sideMenu = document.getElementById('sideMenu');
+        let isMenuOpen = false; // ПРАПОРЕЦЬ ДЛЯ ЗАХИСТУ ВІД СВАЙПІВ КАРУСЕЛІ
         
         const openMenu = () => {
+            isMenuOpen = true;
             sideMenuOverlay.style.display = 'block';
             setTimeout(() => { sideMenuOverlay.style.opacity = '1'; sideMenu.style.transform = 'translateX(0)'; }, 10);
         };
         const closeMenu = () => {
+            isMenuOpen = false;
             sideMenu.style.transform = 'translateX(-100%)';
             sideMenuOverlay.style.opacity = '0';
             setTimeout(() => sideMenuOverlay.style.display = 'none', 300);
@@ -363,7 +366,7 @@
         let isEdgeDragging = false;
         
         document.addEventListener('touchstart', (e) => {
-            if (e.touches[0].clientX < 20 && sideMenu.style.transform !== 'translateX(0px)') {
+            if (e.touches[0].clientX < 20 && !isMenuOpen) {
                 edgeStartX = e.touches[0].clientX;
                 isEdgeDragging = true;
                 sideMenu.style.transition = 'none';
@@ -435,7 +438,8 @@
         let isTrackDragging = false;
 
         document.addEventListener('touchstart', (e) => {
-            if (e.target.closest('.modal') || e.target.closest('#orderModal') || e.target.closest('#sideMenuOverlay')) return;
+            if (isMenuOpen) return; // ЗАХИСТ ВІД СВАЙПІВ ПРИ ВІДКРИТОМУ МЕНЮ
+            if (e.target.closest('.modal') || e.target.closest('#orderModal') || e.target.closest('#sideMenuOverlay') || e.target.closest('#sideMenu')) return;
             if (e.touches[0].clientX < 20) return; 
             
             mainStartX = e.touches[0].clientX;
