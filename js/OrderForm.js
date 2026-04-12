@@ -4,13 +4,15 @@ import { setupPhoneMask, formatPhoneString } from "./Utils.js";
 export class OrderForm {
     constructor(core) {
         this.core = core;
-        // Підключаємо нову структуру шторки
         this.sheet = document.getElementById('orderModal');
         this.overlay = document.getElementById('orderModalOverlay');
         this.header = document.getElementById('orderModalHeader');
         this.dragHandle = document.getElementById('orderDragHandle');
         this.container = document.getElementById('itemsContainer');
         this.editingId = null;
+        
+        this.currentState = 'CLOSED'; // 'CLOSED', 'MINIMIZED', 'DEFAULT', 'FULLSCREEN'
+        this.currentY = window.innerHeight;
         
         this.bindEvents();
         this.setupAutocomplete();
@@ -21,8 +23,7 @@ export class OrderForm {
     bindEvents() {
         document.getElementById('fabBtn').onclick = () => this.open();
         
-        // Кнопки повного закриття
-        const completelyClose = () => this.fullyClose();
+        const completelyClose = () => this.snapTo('CLOSED');
         document.getElementById('closeOrderBtn').onclick = completelyClose;
         document.getElementById('closeOrderTopBtn').onclick = completelyClose;
         this.overlay.onclick = completelyClose;
@@ -45,7 +46,6 @@ export class OrderForm {
 
         this.container.addEventListener('input', handleUpdate);
         this.container.addEventListener('change', handleUpdate);
-
         this.container.addEventListener('click', (e) => {
             if (e.target.classList.contains('btn-danger')) {
                 e.target.closest('.item-row-wrapper').remove();
@@ -63,100 +63,166 @@ export class OrderForm {
             }
         });
 
-        // Клік по шапці розгортає згорнуте вікно
         this.header.onclick = (e) => {
-            if (this.sheet.classList.contains('minimized') && !e.target.closest('button')) {
-                this.maximize();
-            }
+            if (window.innerWidth >= 768) return; // Без розгортання на ПК
+            if (e.target.closest('button')) return;
+            if (this.currentState === 'MINIMIZED') this.snapTo('DEFAULT');
+            else if (this.currentState === 'DEFAULT') this.snapTo('FULLSCREEN');
+            else if (this.currentState === 'FULLSCREEN') this.snapTo('DEFAULT');
         };
     }
 
-    // --- ЛОГІКА АНІМАЦІЙ ШТОРКИ ---
+    // --- ЛОГІКА ТЕЛЕГРАМ-ШТОРКИ ---
 
-    maximize() {
-        this.sheet.classList.remove('minimized');
-        this.sheet.style.transform = 'translateY(0)';
-        this.overlay.style.display = 'block';
-        setTimeout(() => this.overlay.style.opacity = '1', 10);
-        this.overlay.style.pointerEvents = 'auto'; 
+    setTransform(y) {
+        if (window.innerWidth >= 768) return; // Не застосовуємо інлайн стилі на ПК
+        
+        this.currentY = y;
+        this.sheet.style.transform = `translateY(${y}px)`;
+        
+        const h = window.innerHeight;
+        if (y > h - 150) {
+            document.getElementById('expandHint').style.display = 'inline-block';
+            document.getElementById('orderModalTitleText').style.fontSize = '16px';
+        } else {
+            document.getElementById('expandHint').style.display = 'none';
+            document.getElementById('orderModalTitleText').style.fontSize = '19px';
+        }
+        
+        if (y < 20) this.sheet.style.borderRadius = '0';
+        else this.sheet.style.borderRadius = '20px 20px 0 0';
     }
 
-    minimize() {
-        this.sheet.classList.add('minimized');
-        this.sheet.style.transform = 'translateY(calc(100% - 70px))';
-        this.overlay.style.opacity = '0';
-        this.overlay.style.pointerEvents = 'none'; // дозволяє клікати під фоном
-        setTimeout(() => {
-            if (this.sheet.classList.contains('minimized')) {
-                this.overlay.style.display = 'none';
-            }
-        }, 300);
-    }
+    snapTo(state) {
+        this.currentState = state;
+        const isDesktop = window.innerWidth >= 768;
 
-    fullyClose() {
-        this.sheet.classList.remove('minimized');
-        this.sheet.style.transform = 'translateY(100%)';
-        this.overlay.style.opacity = '0';
-        setTimeout(() => {
-            this.overlay.style.display = 'none';
-        }, 300);
+        if (!isDesktop) {
+            this.sheet.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-radius 0.3s';
+        }
+
+        const h = window.innerHeight;
+        let targetY = 0;
+        
+        if (state === 'CLOSED') {
+            targetY = h;
+            this.overlay.style.opacity = '0';
+            this.overlay.style.pointerEvents = 'none';
+            if (isDesktop) this.sheet.style.opacity = '0';
+
+            setTimeout(() => { 
+                if(this.currentState === 'CLOSED') { 
+                    this.overlay.style.display = 'none'; 
+                    this.sheet.style.display = 'none'; 
+                } 
+            }, 300);
+        } else if (state === 'MINIMIZED') {
+            if (isDesktop) return this.snapTo('CLOSED'); // На ПК відразу закриваємо
+
+            targetY = h - 70;
+            this.overlay.style.opacity = '0';
+            this.overlay.style.pointerEvents = 'none';
+            this.sheet.style.display = 'flex';
+            setTimeout(() => { if(this.currentState === 'MINIMIZED') this.overlay.style.display = 'none'; }, 300);
+        } else if (state === 'DEFAULT' || state === 'FULLSCREEN') {
+            targetY = state === 'DEFAULT' ? h * 0.15 : 0;
+            this.overlay.style.display = 'block';
+            this.overlay.style.pointerEvents = 'auto';
+            this.sheet.style.display = 'flex';
+            
+            setTimeout(() => {
+                this.overlay.style.opacity = '1';
+                if (isDesktop) this.sheet.style.opacity = '1';
+            }, 10);
+        }
+        
+        if (!isDesktop) {
+            this.setTransform(targetY);
+        } else {
+            this.sheet.style.transform = ''; // Дозволяємо CSS центрувати вікно на ПК
+        }
     }
 
     setupSwipeLogic() {
+        const scrollArea = this.sheet.querySelector('.modal-scrollable-content');
         let startY = 0;
-        let currentY = 0;
-        let isDragging = false;
-        let initialTransform = 0;
+        let startTranslateY = 0;
+        let isDraggingSheet = false;
+        let startTime = 0;
 
         const handleTouchStart = (e) => {
-            if (this.sheet.classList.contains('minimized')) {
-                initialTransform = this.sheet.offsetHeight - 70;
-            } else {
-                initialTransform = 0;
-            }
+            if (window.innerWidth >= 768) return; // Без свайпів на ПК
+            
             startY = e.touches[0].clientY;
-            currentY = startY;
-            isDragging = true;
-            this.sheet.style.transition = 'none';
+            startTranslateY = this.currentY;
+            startTime = Date.now();
+            
+            const inScrollArea = e.target.closest('.modal-scrollable-content');
+            const isHeaderArea = e.target.closest('#orderModalHeader') || e.target.closest('#orderDragHandle');
+
+            if (this.currentState === 'MINIMIZED') {
+                isDraggingSheet = true;
+            } else if (isHeaderArea) {
+                isDraggingSheet = true;
+            } else if (inScrollArea && scrollArea.scrollTop <= 0) {
+                isDraggingSheet = true;
+            } else {
+                isDraggingSheet = false;
+            }
+
+            if (isDraggingSheet) {
+                this.sheet.style.transition = 'none';
+            }
         };
 
         const handleTouchMove = (e) => {
-            if (!isDragging) return;
-            currentY = e.touches[0].clientY;
-            let deltaY = currentY - startY;
+            if (!isDraggingSheet) return;
+            let deltaY = e.touches[0].clientY - startY;
+
+            const isHeaderArea = e.target.closest('#orderModalHeader') || e.target.closest('#orderDragHandle');
+            if (!isHeaderArea && deltaY < 0 && this.currentState === 'FULLSCREEN') {
+                isDraggingSheet = false;
+                this.sheet.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)';
+                return; 
+            }
             
-            let newY = initialTransform + deltaY;
-            if (newY < 0) newY = 0; // Не даємо тягнути вище екрану
+            let newY = startTranslateY + deltaY;
+            if (newY < 0) newY = 0; 
             
-            this.sheet.style.transform = `translateY(${newY}px)`;
+            this.setTransform(newY);
+            if (e.cancelable) e.preventDefault(); 
         };
 
         const handleTouchEnd = (e) => {
-            if (!isDragging) return;
-            isDragging = false;
-            this.sheet.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+            if (!isDraggingSheet) return;
+            isDraggingSheet = false;
             
-            let deltaY = currentY - startY;
-            
-            if (this.sheet.classList.contains('minimized')) {
-                // Тягнули вгору зі згорнутого стану
-                if (deltaY < -30) this.maximize();
-                else this.minimize();
+            let deltaY = e.changedTouches[0].clientY - startY;
+            let velocity = deltaY / (Date.now() - startTime);
+            const h = window.innerHeight;
+
+            if (velocity > 0.6) {
+                if (this.currentState === 'FULLSCREEN') this.snapTo('DEFAULT');
+                else this.snapTo('MINIMIZED');
+            } else if (velocity < -0.6) {
+                if (this.currentState === 'MINIMIZED') this.snapTo('DEFAULT');
+                else this.snapTo('FULLSCREEN');
             } else {
-                // Тягнули вниз з розгорнутого стану
-                if (deltaY > 50) this.minimize();
-                else this.maximize();
+                let pos = this.currentY;
+                let distFull = Math.abs(pos - 0);
+                let distDef = Math.abs(pos - h * 0.15);
+                let distMin = Math.abs(pos - (h - 70));
+
+                let min = Math.min(distFull, distDef, distMin);
+                if (min === distFull) this.snapTo('FULLSCREEN');
+                else if (min === distDef) this.snapTo('DEFAULT');
+                else this.snapTo('MINIMIZED');
             }
         };
 
-        // Свайп працює і на сірій "ручці", і на всій шапці
-        this.dragHandle.addEventListener('touchstart', handleTouchStart, { passive: true });
-        this.dragHandle.addEventListener('touchmove', handleTouchMove, { passive: true });
-        this.dragHandle.addEventListener('touchend', handleTouchEnd);
-        
-        this.header.addEventListener('touchstart', handleTouchStart, { passive: true });
-        this.header.addEventListener('touchmove', handleTouchMove, { passive: true });
-        this.header.addEventListener('touchend', handleTouchEnd);
+        this.sheet.addEventListener('touchstart', handleTouchStart, { passive: true });
+        this.sheet.addEventListener('touchmove', handleTouchMove, { passive: false });
+        this.sheet.addEventListener('touchend', handleTouchEnd);
     }
 
     // ----------------------------------
@@ -309,7 +375,7 @@ export class OrderForm {
 
     open(data = null, id = null) {
         this.editingId = id;
-        document.getElementById('orderModalTitleText').innerText = id ? "Редагування замовлення" : "Нове замовлення";
+        document.getElementById('orderModalTitleText').innerText = id ? "Редагування" : "Нове замовлення";
         document.getElementById('blacklistWarning').style.display = 'none';
 
         document.getElementById('newIsUrgent').checked = data?.isUrgent || false;
@@ -343,8 +409,7 @@ export class OrderForm {
         if (data) this.core.blacklist.checkWarning(data.customerPhone);
         this.calcTotal();
         
-        // Відкриваємо шторку на повну
-        this.maximize();
+        this.snapTo('DEFAULT');
     }
 
     addItemRow(name = "", qty = 1, price = "", currency = "₴") {
@@ -519,12 +584,9 @@ export class OrderForm {
             }
 
             await this.core.loadClients();
+            this.snapTo('CLOSED');
             
-            // Після збереження повністю закриваємо шторку
-            this.fullyClose();
-            
-            this.core.orderList.currentTab = 'active';
-            this.core.orderList.updateTabUI();
+            document.getElementById('tabActiveBtn').click();
             this.core.orderList.render();
         } catch (err) {
             alert(err.message || "Помилка збереження");

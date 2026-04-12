@@ -19,7 +19,8 @@
         .header-content { display: flex; justify-content: space-between; align-items: center; }
         .user-info { font-size: 13px; text-align: right; line-height: 1.2; margin-right: 5px; }
         
-        main { padding: 15px; padding-bottom: 80px; min-height: 100vh; }
+        main { padding: 0; padding-bottom: 80px; min-height: 100vh; overflow-x: hidden; }
+        
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); display: flex; flex-direction: column; height: 100%; box-sizing: border-box; border: 2px solid #c4c0c0; }
         input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; outline: none; transition: border 0.2s; }
         input:focus { border-color: #4CAF50; }
@@ -50,22 +51,17 @@
         .status-box { background: #f9f9f9; padding: 10px; border-radius: 8px; margin-top: 10px; border: 1px solid #eee; }
         
         #blacklistWarning { display: none; background: #ffebee; border: 1px solid #ef9a9a; color: #c62828; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; line-height: 1.4; }
-        .header-btn { background: none; border: none; font-size: 24px; padding: 0 8px; border-radius: 6px; cursor: pointer; color: white; width: auto; line-height: 1; }
+        .header-btn { background: none; border: none; font-size: 26px; padding: 0 8px; border-radius: 6px; cursor: pointer; color: white; width: auto; line-height: 1; }
 
         .tabs { display: flex; background: white; margin-bottom: 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .tab-btn { flex: 1; background: none; border: none; padding: 12px; font-weight: bold; color: #888; border-radius: 0; transition: background 0.3s ease, color 0.3s ease; }
         .tab-btn.active { color: #333; background: #4CAF50; color: white; }
         
-        .slide-to-history { animation: slideLeft 0.25s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; }
-        .slide-to-active { animation: slideRight 0.25s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; }
-        @keyframes slideLeft { 0% { opacity: 0; transform: translateX(30px); } 100% { opacity: 1; transform: translateX(0); } }
-        @keyframes slideRight { 0% { opacity: 0; transform: translateX(-30px); } 100% { opacity: 1; transform: translateX(0); } }
-        
         .seller-chip { background: #eee; padding: 8px 12px; border-radius: 20px; font-size: 14px; cursor: pointer; border: 2px solid transparent; transition: 0.2s; color: #333; }
         .seller-chip.active { background: #fffde7; border-color: #4CAF50; color: #f57f17; font-weight: bold; }
         
-        #appContent, #deletedContent { display: grid; grid-template-columns: 1fr; gap: 12px; align-items: stretch; }
-        @media (min-width: 768px) { #appContent { grid-template-columns: 1fr 1fr; } }
+        .order-grid { display: grid; grid-template-columns: 1fr; gap: 12px; align-items: stretch; }
+        @media (min-width: 768px) { .order-grid { grid-template-columns: 1fr 1fr; } }
         
         .urgent-checkbox { display: none; }
         .urgent-content { display: flex; justify-content: center; align-items: center; gap: 10px; padding: 15px; background: #fafafa; border: 2px solid #eee; border-radius: 10px; font-weight: bold; color: #999; transition: all 0.2s; }
@@ -73,12 +69,19 @@
         .urgent-icon::before { content: "✖️"; font-size: 18px; opacity: 0.5; }
         .urgent-checkbox:checked + .urgent-content .urgent-icon::before { content: "✅"; opacity: 1; }
 
+        /* БОКОВЕ МЕНЮ */
         #sideMenuOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; opacity: 0; transition: opacity 0.3s ease; }
-        #sideMenu { position: fixed; top: 0; right: 0; width: 85%; max-width: 340px; height: 100%; background: white; box-shadow: -5px 0 25px rgba(0,0,0,0.2); z-index: 2001; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; }
+        #sideMenu { 
+            position: fixed; top: 0; left: 0; right: auto; 
+            width: 85%; max-width: 340px; height: 100%; background: white; 
+            box-shadow: 5px 0 25px rgba(0,0,0,0.2); z-index: 2001; 
+            transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+            display: flex; flex-direction: column; 
+        }
         .menu-item-btn { background: transparent !important; color: #333 !important; text-align: left !important; padding: 18px 20px !important; font-size: 16px !important; border-bottom: 1px solid #f0f0f0 !important; border-radius: 0 !important; font-weight: 500 !important; width: 100% !important; display: block !important; box-shadow: none !important; transition: background 0.2s !important; }
         .menu-item-btn:hover, .menu-item-btn:active { background: #f5f5f5 !important; }
 
-        /* TELEGRAM-ШТОРКА ЗАМОВЛЕННЯ */
+        /* TELEGRAM-ШТОРКА ЗАМОВЛЕННЯ (Мобільна версія за замовчуванням) */
         #orderModalOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; opacity: 0; transition: opacity 0.3s; }
         #orderModal {
             position: fixed; top: 0; left: 0; right: 0; 
@@ -86,14 +89,37 @@
             border-radius: 20px 20px 0 0; box-shadow: 0 -5px 25px rgba(0,0,0,0.2); padding: 0;
             transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
             display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; margin: 0;
+            will-change: transform;
         }
         .drag-handle { width: 100%; height: 25px; display: flex; justify-content: center; align-items: center; cursor: grab; flex-shrink: 0; padding-top: 5px; touch-action: none; }
         .drag-bar { width: 40px; height: 5px; background: #ccc; border-radius: 3px; }
-        .modal-scrollable-content { overflow-y: auto; padding: 0 20px 50px 20px; flex: 1; }
+        .modal-scrollable-content { overflow-y: auto; padding: 0 20px 50px 20px; flex: 1; overscroll-behavior-y: none; }
         
         #expandHint { display: none; font-size: 13px; color: #4CAF50; background: #e8f5e9; padding: 4px 10px; border-radius: 12px; margin-left: 10px; font-weight: bold; }
         #orderModalTitleText { font-size: 19px; transition: font-size 0.2s; }
         #orderModalHeader { cursor: pointer; touch-action: none; }
+
+        /* ПОВЕРНЕННЯ КЛАСИЧНОГО ВИГЛЯДУ ДЛЯ ПК (Відключаємо шторку на великих екранах) */
+        @media (min-width: 768px) {
+            #orderModal {
+                top: 50%; left: 50%; bottom: auto; right: auto;
+                width: 95%; max-width: 600px; height: auto; max-height: 90vh;
+                transform: translate(-50%, -50%) !important; /* Жорстке центрування CSS */
+                border-radius: 16px !important;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                opacity: 0;
+                transition: opacity 0.2s ease !important; /* Міняємо свайп на звичайне проявлення */
+            }
+            .drag-handle { display: none !important; }
+            #expandHint { display: none !important; }
+            #orderModalHeader { cursor: default !important; padding-top: 20px !important; }
+            .modal-scrollable-content { overscroll-behavior-y: auto; padding-bottom: 20px; }
+        }
+
+        /* КАРУСЕЛЬ ДЛЯ ЕКРАНІВ */
+        .carousel-viewport { overflow: hidden; width: 100%; position: relative; }
+        .carousel-track { display: flex; width: 200%; transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); will-change: transform; }
+        .carousel-pane { width: 50%; flex-shrink: 0; padding: 0 15px; box-sizing: border-box; }
     </style>
 </head>
 <body>
@@ -118,13 +144,13 @@
 <div id="mainApp" style="display: none;">
     <header>
         <div class="header-content">
-            <div>🍯 <b>Бджоляр</b></div>
             <div style="display: flex; align-items: center; gap: 10px;">
-                <div class="user-info">
-                    <span id="displayUserName" style="font-weight:bold;">Завантаження...</span><br>
-                    <a href="#" id="logoutBtn" style="color: #0e0e0e; font-size: 11px; text-decoration: none;">Вийти</a>
-                </div>
-                <button id="menuToggleBtn" class="header-btn">☰</button>
+                <button id="menuToggleBtn" class="header-btn" style="padding-left: 0;">☰</button>
+                <div style="font-size: 18px;">🍯 <b>Бджоляр</b></div>
+            </div>
+            <div class="user-info">
+                <span id="displayUserName" style="font-weight:bold;">Завантаження...</span><br>
+                <a href="#" id="logoutBtn" style="color: #e8f5e9; font-size: 11px; text-decoration: none;">Вийти</a>
             </div>
         </div>
         
@@ -133,7 +159,6 @@
                 <h3 style="margin: 0;">👑 Панель Адміністратора</h3>
                 <span id="adminToggleIcon" style="background: #f4f4f9; padding: 5px 10px; border-radius: 8px; font-size: 13px; font-weight: bold; color: #666; border: 1px solid #ddd; transition: 0.2s;">🔽 Розгорнути</span>
             </div>
-            
             <div id="adminPanelContent" style="display: none; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">
                 <div style="background: #f9f9f9; padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #eee;">
                     <h4 style="margin: 0 0 10px 0; font-size: 14px;">➕ Створити продавця</h4>
@@ -144,10 +169,8 @@
                         <button id="adminRegBtn" class="btn-danger" style="flex: 1; min-width: 100px; margin:0; padding: 8px;">Створити</button>
                     </div>
                 </div>
-
                 <h4 style="margin: 0 0 10px 0; font-size: 14px;">👥 Фільтр по продавцях:</h4>
                 <div id="adminSellersList" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;"></div>
-                
                 <h4 style="margin: 20px 0 10px 0; font-size: 14px;">🔄 Перенесення історії</h4>
                 <div style="background: #fff3e0; padding: 12px; border-radius: 8px; border: 1px solid #ffe0b2; margin-bottom: 15px;">
                     <p style="font-size: 11px; color: #e65100; margin: 0 0 10px 0;">Перенесення замовлень на новий акаунт (напр. при скиданні пароля).</p>
@@ -157,7 +180,6 @@
                         <button id="adminTransferBtn" style="flex: 0.5; min-width: 90px; margin:0; padding: 8px; background: #fb8c00; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Перенести</button>
                     </div>
                 </div>
-
                 <button id="adminShowAllBtn" class="btn-secondary btn-small" style="padding: 10px 15px; background: #e0e0e0; width: 100%; font-size: 14px;">🌍 Показати всі замовлення</button>
             </div>
         </div>
@@ -177,150 +199,73 @@
     </div>
 
     <main>
-        <div class="tabs">
-            <button id="tabActiveBtn" class="tab-btn active">📦 Поточні</button>
-            <button id="tabHistoryBtn" class="tab-btn">🕰️ Історія</button>
-        </div>
+        <div style="padding: 15px 15px 0;">
+            <div class="tabs">
+                <button id="tabActiveBtn" class="tab-btn active">📦 Поточні</button>
+                <button id="tabHistoryBtn" class="tab-btn">🕰️ Історія</button>
+            </div>
 
-        <div style="position: relative; display: flex; gap: 8px; margin-bottom: 10px;">
-            <input type="text" id="universalSearch" placeholder="🔍 Пошук (Ім'я, телефон, ТТН)..." style="background: white; flex: 1; margin: 0;">
-            <button id="openSortBtn" class="btn-secondary" style="width: 46px; height: 46px; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 20px; border: 1px solid #ddd; background: white; border-radius: 8px;">🎛️</button>
+            <div style="position: relative; display: flex; gap: 8px; margin-bottom: 10px;">
+                <input type="text" id="universalSearch" placeholder="🔍 Пошук (Ім'я, телефон, ТТН)..." style="background: white; flex: 1; margin: 0;">
+                <button id="openSortBtn" class="btn-secondary" style="width: 46px; height: 46px; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 20px; border: 1px solid #ddd; background: white; border-radius: 8px;">🎛️</button>
 
-            <div id="sortDropdown" style="display: none; position: absolute; top: 54px; right: 0; background: white; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.15); border: 1px solid #eee; padding: 15px; width: 230px; z-index: 1000; flex-direction: column; gap: 12px;">
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; font-weight: bold; color: #e65100;">
-                    <input type="checkbox" id="showUrgent" checked style="width: 18px; height: 18px; margin: 0;">
-                    🔥 Відображати термінові
-                </label>
-                <div style="height: 1px; background: #eee; width: 100%;"></div>
-                <div style="display: flex; gap: 8px; align-items: center;">
-                    <select id="sortField" style="flex: 1; margin: 0; padding: 8px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; outline: none;">
-                        <option value="date">📅 За датою</option>
-                        <option value="name">👤 За ім'ям</option>
-                        <option value="sum">💰 За сумою</option>
-                    </select>
-                    <button id="sortOrderBtn" class="btn-secondary" style="width: 36px; height: 36px; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; border-radius: 6px; border: 1px solid #ddd; background: #fff;" title="Змінити напрямок">⬇️</button>
+                <div id="sortDropdown" style="display: none; position: absolute; top: 54px; right: 0; background: white; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.15); border: 1px solid #eee; padding: 15px; width: 230px; z-index: 1000; flex-direction: column; gap: 12px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; font-weight: bold; color: #e65100;">
+                        <input type="checkbox" id="showUrgent" checked style="width: 18px; height: 18px; margin: 0;">🔥 Відображати термінові
+                    </label>
+                    <div style="height: 1px; background: #eee; width: 100%;"></div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <select id="sortField" style="flex: 1; margin: 0; padding: 8px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; outline: none;">
+                            <option value="date">📅 За датою</option><option value="name">👤 За ім'ям</option><option value="sum">💰 За сумою</option>
+                        </select>
+                        <button id="sortOrderBtn" class="btn-secondary" style="width: 36px; height: 36px; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; border-radius: 6px; border: 1px solid #ddd; background: #fff;">⬇️</button>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div id="historyAnalytics" style="display: none; background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-            <h4 style="margin-top: 0; color: #333;">📊 Статистика продажів</h4>
-            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                <div style="flex: 1;"><label style="font-size:12px; color:#666;">З дати:</label><input type="date" id="statDateFrom" style="padding:8px; margin:0;" autocomplete="off"></div>
-                <div style="flex: 1;"><label style="font-size:12px; color:#666;">По дату:</label><input type="date" id="statDateTo" style="padding:8px; margin:0;" autocomplete="off"></div>
-            </div>
-            <button id="calcStatBtn" class="btn-secondary" style="margin-bottom: 10px; background: #fffde7; color: #fbc02d; border: 1px solid #fff59d;">📋 Підрахувати підсумки</button>
-            <div id="statResult" style="font-size: 14px; line-height: 1.5; margin-bottom: 12px;"></div>
-
-            <div style="border-top: 1px solid #eee; padding-top: 12px; margin-top: 4px;">
-                <div style="font-size:13px; color:#666; margin-bottom:8px;">💱 Конвертувати і підсумувати за обраний період:</div>
-                <div style="display:flex; gap:8px; align-items:center;">
-                    <select id="convertCurrency" style="flex:1; padding:10px; border:1px solid #ddd; border-radius:8px; font-size:15px; margin:0; background:#fff;">
-                        <option value="UAH">Підсумок у гривнях (₴)</option>
-                        <option value="USD">Підсумок у доларах ($)</option>
-                    </select>
-                    <button id="convertStatBtn" style="flex:2; background:#e8f5e9; color:#2e7d32; border:1px solid #a5d6a7; font-size:13px; padding:10px; margin:0;">💱 Конвертувати та підсумувати</button>
+        <div class="carousel-viewport">
+            <div class="carousel-track" id="carouselTrack">
+                <div class="carousel-pane">
+                    <div id="activeContent" class="order-grid"></div>
                 </div>
-                <div id="convertResult" style="margin-top:10px; font-size:14px;"></div>
+                <div class="carousel-pane">
+                    <div id="historyAnalytics" style="display: block; background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                        <h4 style="margin-top: 0; color: #333;">📊 Статистика продажів</h4>
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <div style="flex: 1;"><label style="font-size:12px; color:#666;">З дати:</label><input type="date" id="statDateFrom" style="padding:8px; margin:0;" autocomplete="off"></div>
+                            <div style="flex: 1;"><label style="font-size:12px; color:#666;">По дату:</label><input type="date" id="statDateTo" style="padding:8px; margin:0;" autocomplete="off"></div>
+                        </div>
+                        <button id="calcStatBtn" class="btn-secondary" style="margin-bottom: 10px; background: #fffde7; color: #fbc02d; border: 1px solid #fff59d;">📋 Підрахувати підсумки</button>
+                        <div id="statResult" style="font-size: 14px; line-height: 1.5; margin-bottom: 12px;"></div>
+
+                        <div style="border-top: 1px solid #eee; padding-top: 12px; margin-top: 4px;">
+                            <div style="font-size:13px; color:#666; margin-bottom:8px;">💱 Конвертувати і підсумувати за обраний період:</div>
+                            <div style="display:flex; gap:8px; align-items:center;">
+                                <select id="convertCurrency" style="flex:1; padding:10px; border:1px solid #ddd; border-radius:8px; font-size:15px; margin:0; background:#fff;">
+                                    <option value="UAH">Підсумок у гривнях (₴)</option>
+                                    <option value="USD">Підсумок у доларах ($)</option>
+                                </select>
+                                <button id="convertStatBtn" style="flex:2; background:#e8f5e9; color:#2e7d32; border:1px solid #a5d6a7; font-size:13px; padding:10px; margin:0;">💱 Конвертувати та підсумувати</button>
+                            </div>
+                            <div id="convertResult" style="margin-top:10px; font-size:14px;"></div>
+                        </div>
+                    </div>
+                    <div id="historyContent" class="order-grid"></div>
+                </div>
             </div>
         </div>
-
-        <div id="appContent"></div>
     </main>
     
     <button id="fabBtn" class="fab">+</button>
     <button id="scrollTopBtn">↑</button>
 </div>
 
-<div id="ttnModal" class="modal" style="align-items: center;">
-    <div class="modal-content">
-        <h3 style="color:#333;">Додати ТТН</h3>
-        <input type="text" id="ttnInput" placeholder="Введіть номер накладної...">
-        <div style="display: flex; gap: 10px; margin-top: 15px;">
-            <button id="closeTtnBtn" class="btn-secondary">Скасувати</button>
-            <button id="saveTtnBtn">Зберегти</button>
-        </div>
-    </div>
-</div>
-
-<div id="settingsModal" class="modal">
-    <div class="modal-content">
-        <h3 style="color:#333;">Налаштування</h3>
-        <label style="font-size: 12px; font-weight: bold; color: #666; display: block; margin-top: 5px;">Мої товари (Пресет)</label>
-        <div id="presetsList"></div>
-        <button id="addPresetBtn" class="btn-secondary" style="margin-top: 10px;">+ Додати товар</button>
-        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
-        <button id="saveSettingsBtn">Зберегти налаштування</button>
-        <button id="closeSettingsBtn" class="btn-secondary" style="margin-top: 10px;">Закрити</button>
-    </div>
-</div>
-
-<div id="clientsModal" class="modal">
-    <div class="modal-content" style="background: #fdfaf6;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; margin-bottom: 15px;">
-            <h3 style="margin: 0; color: #333;">👥 Моя база клієнтів</h3>
-            <button id="closeClientsBtn" class="btn-secondary btn-small" style="margin:0;">✕</button>
-        </div>
-        <input type="text" id="clientsSearch" placeholder="🔍 Пошук клієнта..." style="margin-bottom: 15px; background: white;">
-        <div id="clientEditForm" style="display: none; background: white; padding: 15px; border-radius: 8px; border: 1px solid #4caf50; margin-bottom: 15px;">
-            <h4 style="margin-top: 0; color: #2e7d32;">✏️ Редагування</h4>
-            <input type="hidden" id="editClientOldId">
-            <input type="text" id="editClientPhone" placeholder="📞 Телефон" inputmode="numeric">
-            <input type="text" id="editClientName" placeholder="👤 Ім'я клієнта">
-            <div style="display: flex; gap: 10px; margin-top: 10px;">
-                <button id="cancelClientEditBtn" class="btn-secondary">Скасувати</button>
-                <button id="saveClientEditBtn">Зберегти</button>
-            </div>
-        </div>
-        <div id="clientsContent" style="max-height: 50vh; overflow-y: auto; padding-right: 5px;"></div>
-    </div>
-</div>
-
-<div id="deletedModal" class="modal">
-    <div class="modal-content" style="background: #fdfaf6; padding-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; margin-bottom: 15px;">
-            <h3 style="margin: 0; color: #555;">🗑️ Кошик (Видалені)</h3>
-            <button id="closeDeletedBtn" class="btn-secondary btn-small" style="margin:0;">Закрити</button>
-        </div>
-        <div style="position: relative; display: flex; gap: 8px; margin-bottom: 10px;">
-            <input type="text" id="deletedSearch" placeholder="🔍 Пошук у кошику..." style="background: white; flex: 1; margin: 0; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
-            <button id="openDeletedSortBtn" class="btn-secondary" style="width: 42px; height: 42px; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; border: 1px solid #ddd; background: white; border-radius: 8px;">🎛️</button>
-            <div id="deletedSortDropdown" style="display: none; position: absolute; top: 50px; right: 0; background: white; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.2); border: 1px solid #eee; padding: 15px; width: 230px; z-index: 1000; flex-direction: column; gap: 12px;">
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; font-weight: bold; color: #e65100;">
-                    <input type="checkbox" id="deletedShowUrgent" checked style="width: 18px; height: 18px; margin: 0;">🔥 Відображати термінові
-                </label>
-                <div style="height: 1px; background: #eee; width: 100%;"></div>
-                <div style="display: flex; gap: 8px; align-items: center;">
-                    <select id="deletedSortField" style="flex: 1; margin: 0; padding: 8px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; outline: none;">
-                        <option value="date">📅 За датою</option><option value="name">👤 За ім'ям</option><option value="sum">💰 За сумою</option>
-                    </select>
-                    <button id="deletedSortOrderBtn" class="btn-secondary" style="width: 36px; height: 36px; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; border-radius: 6px; border: 1px solid #ddd; background: #fff;" title="Змінити напрямок">⬇️</button>
-                </div>
-            </div>
-        </div>
-        <div id="deletedContent" style="max-height: 55vh; overflow-y: auto; padding-right: 5px;"></div>
-    </div>
-</div>
-
-<div id="blacklistModal" class="modal">
-    <div class="modal-content" style="background: #fdfaf6;">
-        <h3 style="color: #c62828; border-bottom: 2px solid #ef9a9a; padding-bottom: 10px; margin-top: 0;">🚫 Чорний список клієнтів</h3>
-        <div id="addBlForm" style="display: none; background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 15px;">
-            <h4 style="margin-top: 0; color: #333;">Додати клієнта в ЧС</h4>
-            <input type="text" id="blPhoneInput" placeholder="Номер телефону (0671234455)" inputmode="numeric">
-            <input type="text" id="blNameInput" placeholder="Ім'я Прізвище (автопідтягування)">
-            <div id="blPastOrdersInfo"></div> 
-            <input type="text" id="blReasonInput" placeholder="Причина (обов'язково)">
-            <div style="display: flex; gap: 10px; margin-top: 10px;">
-                <button id="cancelBlBtn" class="btn-secondary">Скасувати</button>
-                <button id="saveBlBtn" class="btn-danger">Додати в ЧС</button>
-            </div>
-        </div>
-        <button id="showAddBlFormBtn" class="btn-danger" style="margin-bottom: 15px;">+ Додати порушника</button>
-        <div id="blacklistContent" style="max-height: 400px; overflow-y: auto;"></div>
-        <button id="closeBlacklistBtn" class="btn-secondary" style="margin-top: 15px;">Закрити</button>
-    </div>
-</div>
+<div id="ttnModal" class="modal" style="align-items: center;"><div class="modal-content"><h3 style="color:#333;">Додати ТТН</h3><input type="text" id="ttnInput" placeholder="Введіть номер накладної..."><div style="display: flex; gap: 10px; margin-top: 15px;"><button id="closeTtnBtn" class="btn-secondary">Скасувати</button><button id="saveTtnBtn">Зберегти</button></div></div></div>
+<div id="settingsModal" class="modal"><div class="modal-content"><h3 style="color:#333;">Налаштування</h3><label style="font-size: 12px; font-weight: bold; color: #666; display: block; margin-top: 5px;">Мої товари (Пресет)</label><div id="presetsList"></div><button id="addPresetBtn" class="btn-secondary" style="margin-top: 10px;">+ Додати товар</button><hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;"><button id="saveSettingsBtn">Зберегти налаштування</button><button id="closeSettingsBtn" class="btn-secondary" style="margin-top: 10px;">Закрити</button></div></div>
+<div id="clientsModal" class="modal"><div class="modal-content" style="background: #fdfaf6;"><div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; margin-bottom: 15px;"><h3 style="margin: 0; color: #333;">👥 Моя база клієнтів</h3><button id="closeClientsBtn" class="btn-secondary btn-small" style="margin:0;">✕</button></div><input type="text" id="clientsSearch" placeholder="🔍 Пошук клієнта..." style="margin-bottom: 15px; background: white;"><div id="clientEditForm" style="display: none; background: white; padding: 15px; border-radius: 8px; border: 1px solid #4caf50; margin-bottom: 15px;"><h4 style="margin-top: 0; color: #2e7d32;">✏️ Редагування</h4><input type="hidden" id="editClientOldId"><input type="text" id="editClientPhone" placeholder="📞 Телефон" inputmode="numeric"><input type="text" id="editClientName" placeholder="👤 Ім'я клієнта"><div style="display: flex; gap: 10px; margin-top: 10px;"><button id="cancelClientEditBtn" class="btn-secondary">Скасувати</button><button id="saveClientEditBtn">Зберегти</button></div></div><div id="clientsContent" style="max-height: 50vh; overflow-y: auto; padding-right: 5px;"></div></div></div>
+<div id="deletedModal" class="modal"><div class="modal-content" style="background: #fdfaf6; padding-bottom: 20px;"><div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; margin-bottom: 15px;"><h3 style="margin: 0; color: #555;">🗑️ Кошик (Видалені)</h3><button id="closeDeletedBtn" class="btn-secondary btn-small" style="margin:0;">Закрити</button></div><div style="position: relative; display: flex; gap: 8px; margin-bottom: 10px;"><input type="text" id="deletedSearch" placeholder="🔍 Пошук у кошику..." style="background: white; flex: 1; margin: 0; padding: 10px; border: 1px solid #ddd; border-radius: 8px;"><button id="openDeletedSortBtn" class="btn-secondary" style="width: 42px; height: 42px; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; border: 1px solid #ddd; background: white; border-radius: 8px;">🎛️</button><div id="deletedSortDropdown" style="display: none; position: absolute; top: 50px; right: 0; background: white; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.2); border: 1px solid #eee; padding: 15px; width: 230px; z-index: 1000; flex-direction: column; gap: 12px;"><label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; font-weight: bold; color: #e65100;"><input type="checkbox" id="deletedShowUrgent" checked style="width: 18px; height: 18px; margin: 0;">🔥 Відображати термінові</label><div style="height: 1px; background: #eee; width: 100%;"></div><div style="display: flex; gap: 8px; align-items: center;"><select id="deletedSortField" style="flex: 1; margin: 0; padding: 8px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; outline: none;"><option value="date">📅 За датою</option><option value="name">👤 За ім'ям</option><option value="sum">💰 За сумою</option></select><button id="deletedSortOrderBtn" class="btn-secondary" style="width: 36px; height: 36px; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; border-radius: 6px; border: 1px solid #ddd; background: #fff;">⬇️</button></div></div></div><div id="deletedContent" style="max-height: 55vh; overflow-y: auto; padding-right: 5px;"></div></div></div>
+<div id="blacklistModal" class="modal"><div class="modal-content" style="background: #fdfaf6;"><h3 style="color: #c62828; border-bottom: 2px solid #ef9a9a; padding-bottom: 10px; margin-top: 0;">🚫 Чорний список клієнтів</h3><div id="addBlForm" style="display: none; background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 15px;"><h4 style="margin-top: 0; color: #333;">Додати клієнта в ЧС</h4><input type="text" id="blPhoneInput" placeholder="Номер телефону (0671234455)" inputmode="numeric"><input type="text" id="blNameInput" placeholder="Ім'я Прізвище (автопідтягування)"><div id="blPastOrdersInfo"></div><input type="text" id="blReasonInput" placeholder="Причина (обов'язково)"><div style="display: flex; gap: 10px; margin-top: 10px;"><button id="cancelBlBtn" class="btn-secondary">Скасувати</button><button id="saveBlBtn" class="btn-danger">Додати в ЧС</button></div></div><button id="showAddBlFormBtn" class="btn-danger" style="margin-bottom: 15px;">+ Додати порушника</button><div id="blacklistContent" style="max-height: 400px; overflow-y: auto;"></div><button id="closeBlacklistBtn" class="btn-secondary" style="margin-top: 15px;">Закрити</button></div></div>
 
 <div id="orderModalOverlay"></div>
 <div id="orderModal">
@@ -390,14 +335,12 @@
 <script>
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('Service Worker зареєстровано!', reg))
-                .catch(err => console.error('Помилка реєстрації Service Worker:', err));
+            navigator.serviceWorker.register('./sw.js').catch(err => console.error(err));
         });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        // --- 1. ШТОРКА МЕНЮ ---
+        // --- 1. ШТОРКА МЕНЮ (Зліва) ---
         const menuToggleBtn = document.getElementById('menuToggleBtn');
         const sideMenuOverlay = document.getElementById('sideMenuOverlay');
         const sideMenu = document.getElementById('sideMenu');
@@ -407,7 +350,7 @@
             setTimeout(() => { sideMenuOverlay.style.opacity = '1'; sideMenu.style.transform = 'translateX(0)'; }, 10);
         };
         const closeMenu = () => {
-            sideMenu.style.transform = 'translateX(100%)';
+            sideMenu.style.transform = 'translateX(-100%)';
             sideMenuOverlay.style.opacity = '0';
             setTimeout(() => sideMenuOverlay.style.display = 'none', 300);
         };
@@ -416,95 +359,127 @@
         sideMenuOverlay.onclick = closeMenu;
         document.querySelectorAll('.menu-item-btn').forEach(btn => btn.addEventListener('click', closeMenu));
 
-        let smStartX = 0, smCurrentX = 0, smDragging = false;
-        sideMenu.addEventListener('touchstart', (e) => {
-            smStartX = e.touches[0].clientX; smCurrentX = smStartX; smDragging = true;
-            sideMenu.style.transition = 'none';
+        let edgeStartX = 0;
+        let isEdgeDragging = false;
+        
+        document.addEventListener('touchstart', (e) => {
+            if (e.touches[0].clientX < 20 && sideMenu.style.transform !== 'translateX(0px)') {
+                edgeStartX = e.touches[0].clientX;
+                isEdgeDragging = true;
+                sideMenu.style.transition = 'none';
+                sideMenuOverlay.style.display = 'block';
+                sideMenuOverlay.style.opacity = '0';
+            }
         }, { passive: true });
 
+        document.addEventListener('touchmove', (e) => {
+            if (isEdgeDragging) {
+                let deltaX = e.touches[0].clientX - edgeStartX;
+                if (deltaX < 0) deltaX = 0; 
+                let percent = -100 + (deltaX / sideMenu.offsetWidth * 100);
+                if (percent > 0) percent = 0;
+                sideMenu.style.transform = `translateX(${percent}%)`;
+                sideMenuOverlay.style.opacity = (100 + percent) / 100;
+            }
+        }, { passive: true });
+
+        document.addEventListener('touchend', (e) => {
+            if (isEdgeDragging) {
+                isEdgeDragging = false;
+                sideMenu.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+                if (e.changedTouches[0].clientX > 60) openMenu(); 
+                else closeMenu();
+            }
+        });
+
+        let smStartX = 0, smCurrentX = 0, smDragging = false;
+        sideMenu.addEventListener('touchstart', (e) => {
+            smStartX = e.touches[0].clientX; smDragging = true;
+            sideMenu.style.transition = 'none';
+        }, { passive: true });
         sideMenu.addEventListener('touchmove', (e) => {
             if (!smDragging) return;
             smCurrentX = e.touches[0].clientX;
             let deltaX = smCurrentX - smStartX;
-            if (deltaX > 0) sideMenu.style.transform = `translateX(${deltaX}px)`;
+            if (deltaX < 0) sideMenu.style.transform = `translateX(${deltaX}px)`;
         }, { passive: true });
-
         sideMenu.addEventListener('touchend', (e) => {
             if (!smDragging) return;
             smDragging = false;
             sideMenu.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-            if (smCurrentX - smStartX > 60) closeMenu();
+            if (smCurrentX - smStartX < -60) closeMenu();
             else sideMenu.style.transform = 'translateX(0)';
         });
 
-        // --- 2. АНІМАЦІЇ КЛІКУ ПО ВКЛАДКАХ ---
+        // --- 2. КАРУСЕЛЬ ЕКРАНІВ ТА СВАЙП ---
+        const track = document.getElementById('carouselTrack');
         const tabActiveBtn = document.getElementById('tabActiveBtn');
         const tabHistoryBtn = document.getElementById('tabHistoryBtn');
-        const appContent = document.getElementById('appContent');
-        const historyAnalytics = document.getElementById('historyAnalytics');
+        window.currentTabIdx = 0;
 
-        tabActiveBtn.addEventListener('click', function() {
-            if (!this.classList.contains('active')) {
-                appContent.classList.remove('slide-to-history', 'slide-to-active');
-                void appContent.offsetWidth; // Магія для перезапуску CSS анімації
-                appContent.classList.add('slide-to-active');
-            }
-        });
+        const switchToActive = () => {
+            tabActiveBtn.classList.add('active'); tabHistoryBtn.classList.remove('active');
+            track.style.transform = 'translateX(0%)';
+            window.currentTabIdx = 0;
+        };
+        const switchToHistory = () => {
+            tabHistoryBtn.classList.add('active'); tabActiveBtn.classList.remove('active');
+            track.style.transform = 'translateX(-50%)';
+            window.currentTabIdx = 1;
+        };
 
-        tabHistoryBtn.addEventListener('click', function() {
-            if (!this.classList.contains('active')) {
-                appContent.classList.remove('slide-to-history', 'slide-to-active');
-                void appContent.offsetWidth; 
-                appContent.classList.add('slide-to-history');
-                
-                if(historyAnalytics) {
-                    historyAnalytics.classList.remove('slide-to-history');
-                    void historyAnalytics.offsetWidth;
-                    historyAnalytics.classList.add('slide-to-history');
-                }
-            }
-        });
+        tabActiveBtn.onclick = switchToActive;
+        tabHistoryBtn.onclick = switchToHistory;
 
-        // --- 3. ЖЕЛЕЗОБЕТОННИЙ СВАЙП МІЖ ВКЛАДКАМИ (ВЕСЬ ЕКРАН) ---
-        let mainStartX = 0, mainStartY = 0;
+        let mainStartX = 0, mainStartY = 0, trackStartX = 0;
+        let isTrackDragging = false;
 
         document.addEventListener('touchstart', (e) => {
             if (e.target.closest('.modal') || e.target.closest('#orderModal') || e.target.closest('#sideMenuOverlay')) return;
-            mainStartX = e.touches[0].clientX; 
+            if (e.touches[0].clientX < 20) return; 
+            
+            mainStartX = e.touches[0].clientX;
             mainStartY = e.touches[0].clientY;
+            trackStartX = window.currentTabIdx === 1 ? -50 : 0;
+            isTrackDragging = true;
+            track.style.transition = 'none';
         }, { passive: true });
 
         document.addEventListener('touchmove', (e) => {
-            if (mainStartX === 0) return;
-            if (e.target.closest('.modal') || e.target.closest('#orderModal') || e.target.closest('#sideMenuOverlay')) return;
+            if (!isTrackDragging) return;
             let deltaX = e.touches[0].clientX - mainStartX;
             let deltaY = e.touches[0].clientY - mainStartY;
-            
-            // Якщо кут свайпу явно горизонтальний - повністю блокуємо системний жест браузера
+
             if (Math.abs(deltaX) > Math.abs(deltaY) * 1.2 && Math.abs(deltaX) > 10) {
-                if (e.cancelable) e.preventDefault();
+                if (e.cancelable) e.preventDefault(); 
+                let pct = (deltaX / window.innerWidth) * 50;
+                let newTransform = trackStartX + pct;
+                if (newTransform > 0) newTransform = 0; 
+                if (newTransform < -50) newTransform = -50; 
+                track.style.transform = `translateX(${newTransform}%)`;
+            } else {
+                isTrackDragging = false;
+                track.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)';
+                track.style.transform = window.currentTabIdx === 1 ? 'translateX(-50%)' : 'translateX(0%)';
             }
         }, { passive: false });
 
         document.addEventListener('touchend', (e) => {
-            if (mainStartX === 0) return;
-            if (e.target.closest('.modal') || e.target.closest('#orderModal') || e.target.closest('#sideMenuOverlay')) return;
+            if (!isTrackDragging) return;
+            isTrackDragging = false;
+            track.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)';
+            
             let deltaX = e.changedTouches[0].clientX - mainStartX;
-            let deltaY = e.changedTouches[0].clientY - mainStartY;
-
-            if (Math.abs(deltaX) > Math.abs(deltaY) * 1.2 && Math.abs(deltaX) > 50) {
-                const isHistory = tabHistoryBtn.classList.contains('active');
-                if (deltaX > 0 && isHistory) { 
-                    tabActiveBtn.click(); // Свайп вправо 👉
-                } else if (deltaX < 0 && !isHistory) { 
-                    tabHistoryBtn.click(); // Свайп вліво 👈
-                }
+            if (Math.abs(deltaX) > window.innerWidth * 0.2) {
+                if (deltaX < 0) switchToHistory();
+                else switchToActive();
+            } else {
+                if (window.currentTabIdx === 1) switchToHistory();
+                else switchToActive();
             }
-            mainStartX = 0;
-            mainStartY = 0;
-        }, { passive: true });
+        });
 
-        // --- 4. КНОПКА "ВГОРУ" ---
+        // --- 3. КНОПКА "ВГОРУ" ---
         const scrollTopBtn = document.getElementById('scrollTopBtn');
         window.addEventListener('scroll', () => {
             if (window.scrollY > 400) scrollTopBtn.classList.add('visible');

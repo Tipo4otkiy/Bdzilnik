@@ -3,9 +3,11 @@ import { collection, query, where, getDocs, doc, deleteDoc, updateDoc, getDoc } 
 export class OrderList {
     constructor(core) {
         this.core = core;
-        this.container = document.getElementById('appContent');
+        // Тепер у нас два незалежних контейнери
+        this.activeContainer = document.getElementById('activeContent');
+        this.historyContainer = document.getElementById('historyContent');
+        
         this.currentOrderIdForTtn = null;
-        this.currentTab = 'active';
         this.ordersData = [];
         
         this.currentSearchText = '';
@@ -24,7 +26,7 @@ export class OrderList {
     bindEvents() {
         document.getElementById('universalSearch').addEventListener('input', (e) => {
             this.currentSearchText = e.target.value;
-            this.render();
+            this.render(); // Оновлюємо обидва екрани одночасно
         });
 
         const sortDropdown = document.getElementById('sortDropdown');
@@ -91,13 +93,6 @@ export class OrderList {
             }
         });
 
-        document.getElementById('tabActiveBtn').addEventListener('click', () => {
-            this.currentTab = 'active'; this.updateTabUI(); this.render();
-        });
-        document.getElementById('tabHistoryBtn').addEventListener('click', () => {
-            this.currentTab = 'history'; this.updateTabUI(); this.render();
-        });
-
         const deletedModal = document.getElementById('deletedModal');
         document.getElementById('openDeletedBtn').addEventListener('click', () => {
             deletedModal.style.display = 'flex';
@@ -155,7 +150,9 @@ export class OrderList {
             }
         };
 
-        this.container.addEventListener('click', handleOrderActions);
+        // Слухаємо кліки в обох контейнерах
+        this.activeContainer.addEventListener('click', handleOrderActions);
+        this.historyContainer.addEventListener('click', handleOrderActions);
         document.getElementById('deletedContent').addEventListener('click', handleOrderActions);
 
         document.getElementById('closeTtnBtn').onclick = () => document.getElementById('ttnModal').style.display = 'none';
@@ -172,13 +169,8 @@ export class OrderList {
         document.getElementById('convertStatBtn').addEventListener('click', () => this.convertAndSum());
     }
 
-    updateTabUI() {
-        document.getElementById('tabActiveBtn').className = `tab-btn ${this.currentTab === 'active' ? 'active' : ''}`;
-        document.getElementById('tabHistoryBtn').className = `tab-btn ${this.currentTab === 'history' ? 'active' : ''}`;
-        document.getElementById('historyAnalytics').style.display = this.currentTab === 'history' ? 'block' : 'none';
-        document.getElementById('universalSearch').value = '';
-        this.currentSearchText = '';
-    }
+    // Більше не потрібна функція, інтерфейсом керує index.html
+    updateTabUI() {}
 
     _cleanPhone(phone) {
         if (!phone) return '';
@@ -238,7 +230,6 @@ export class OrderList {
         return list;
     }
 
-    // --- НОВИЙ ВІДЖЕТ ВІДОБРАЖЕННЯ ТРЕКІНГУ ---
     _buildTrackingUI(t) {
         if (!t || !t.currentStatus) return '<div style="font-size:12px; color:#888; margin-top:8px;">⏳ Завантаження статусу...</div>';
         
@@ -261,6 +252,71 @@ export class OrderList {
         return html;
     }
 
+    // НОВИЙ МЕТОД: Генерує HTML картки замовлення
+    _buildOrdersHtml(list, isHistoryTab) {
+        if (list.length === 0) {
+            return `<div style="text-align:center; color:#999; padding: 40px 20px; grid-column: 1 / -1;">
+                <div style="font-size:40px; margin-bottom:10px;">${!isHistoryTab ? '📭' : '🕰️'}</div>
+                <div>Немає замовлень, які відповідають критеріям</div>
+            </div>`;
+        }
+
+        return list.map(o => {
+            const isBl = this._isBlacklisted(o.customerPhone);
+            const addrPrefix = o.addressType === 'street' ? '🛣️ Вулиця:' : '🏢 Відділення:';
+            const dateStr = o.createdAt ? new Date(o.createdAt).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+            
+            const urgentHtml = o.isUrgent ? '<span style="background: #ffe0b2; color: #e65100; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-right: 5px; vertical-align: middle;">🔥 Терміново</span>' : '';
+
+            const itemsHtml = (o.items || []).map(i => {
+                const cur = i.currency || '₴';
+                return `• ${i.name} (x${i.qty}) — ${i.price} ${cur}`;
+            }).join('<br>');
+
+            return `
+            <div class="card" ${isBl || o.isUrgent ? `style="border: 2px solid ${isBl ? '#ef9a9a' : '#ffe0b2'};"` : ''}>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <b style="font-size:15px; line-height: 1.4;">${isBl ? '<span style="color:red;">[ЧС]</span> ' : ''}${urgentHtml}${o.customerName || ''}</b>
+                    <div style="text-align:right; line-height:1.4; white-space: nowrap; margin-left: 5px;">${this._formatOrderSum(o)}</div>
+                </div>
+                <div style="font-size:12px; color:#888; margin-bottom:4px; margin-top:2px;">${dateStr}</div>
+                <div style="font-size:12px; color:#666">${o.customerPhone || ''}</div>
+                <div style="font-size:13px; margin:8px 0; line-height:1.7;">${itemsHtml}</div>
+                ${o.comment ? `<div style="font-size:12px; color:#e65100; margin-bottom:5px; background:#fff3e0; padding:6px 8px; border-radius:6px;">💬 ${o.comment}</div>` : ''}
+
+                <div style="font-size:12px; border-top:1px solid #eee; padding-top:8px; margin-top:8px; color:#444;">
+                    <b>${o.deliveryMethod === 'ukrposhta' ? '📫 Укрпошта' : '📦 Нова Пошта'}</b><br>
+                    ${o.city || '<span style="color:#bbb;">Адресу не вказано</span>'}
+                    ${o.deliveryMethod === 'ukrposhta' && o.index ? `<br>Індекс: <b>${o.index}</b>` : ''}
+                    ${o.branch ? `<br>${addrPrefix} <b>${o.branch}</b>` : ''}
+                </div>
+
+                ${o.ttn
+                    ? `<div class="status-box" style="background:#f4f9f4; border:1px solid #c8e6c9;">
+                           <div style="display:flex; justify-content:space-between; align-items:center;">
+                               <div style="font-size:13px; font-weight:bold; word-break: break-all; color:#1976d2;">🔎 ТТН: ${o.ttn}</div>
+                               <button class="btn-secondary btn-small" data-action="add-ttn" data-id="${o.id}" data-ttn="${o.ttn}" style="margin:0; padding:4px 8px; font-size:11px; flex-shrink:0; background:#fff; border:1px solid #ddd;">✏️ Змінити</button>
+                           </div>
+                           <div id="status-${o.id}">
+                               ${o.trackingTimeline ? this._buildTrackingUI(o.trackingTimeline) : '<div style="font-size:12px; color:#888; margin-top:8px;">⏳ Завантаження статусу...</div>'}
+                           </div>
+                       </div>`
+                    : `<button class="btn-secondary btn-small" data-action="add-ttn" data-id="${o.id}" style="margin-top:10px; width:100%; padding:10px; border:1px dashed #ccc; background:#fafafa;">+ Додати ТТН</button>`
+                }
+
+                <div class="card-actions">
+                    ${!isHistoryTab
+                        ? `<button class="btn-secondary btn-small" data-action="complete" data-id="${o.id}" style="background:#e8f5e9; color:#2e7d32; flex:1;">✅ Виконано</button>`
+                        : `<button class="btn-secondary btn-small" data-action="repeat" data-id="${o.id}" style="background:#e3f2fd; color:#1976d2; flex-shrink: 0;">🔄 Повторити</button>`
+                    }
+                    <button class="btn-secondary btn-small" data-action="edit" data-id="${o.id}" style="background:#fff3e0; color:#e65100;">✏️ Ред.</button>
+                    <button class="btn-secondary btn-small" data-action="delete" data-id="${o.id}" style="background:#ffebee; color:#d32f2f;">🗑️ Видалити</button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // НОВИЙ РЕНДЕР: Заповнює обидва екрани одночасно
     async render() {
         try {
             let q;
@@ -276,81 +332,28 @@ export class OrderList {
             let list = [];
             snap.forEach(d => list.push({ id: d.id, ...d.data() }));
 
-            list = list.filter(o => {
-                if (o.status === 'deleted') return false; 
-                const isHistory = o.status === 'history';
-                return this.currentTab === 'active' ? !isHistory : isHistory;
-            });
+            this.ordersData = list; // Зберігаємо загальну базу
 
-            this.ordersData = list;
-            list = this._applySortAndFilters(list, false);
+            // Фільтруємо для обох вкладок
+            let activeList = list.filter(o => o.status !== 'deleted' && o.status !== 'history');
+            let historyList = list.filter(o => o.status === 'history');
 
-            if (list.length === 0) {
-                this.container.innerHTML = `<div style="text-align:center; color:#999; padding: 40px 20px; grid-column: 1 / -1;">
-                    <div style="font-size:40px; margin-bottom:10px;">${this.currentTab === 'active' ? '📭' : '🕰️'}</div>
-                    <div>Немає замовлень, які відповідають критеріям</div>
-                </div>`;
-                return;
-            }
+            // Застосовуємо пошук і сортування до обох списків
+            activeList = this._applySortAndFilters(activeList, false);
+            historyList = this._applySortAndFilters(historyList, false);
 
-            this.container.innerHTML = list.map(o => {
-                const isBl = this._isBlacklisted(o.customerPhone);
-                const addrPrefix = o.addressType === 'street' ? '🛣️ Вулиця:' : '🏢 Відділення:';
-                const dateStr = o.createdAt ? new Date(o.createdAt).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-                
-                const urgentHtml = o.isUrgent ? '<span style="background: #ffe0b2; color: #e65100; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-right: 5px; vertical-align: middle;">🔥 Терміново</span>' : '';
+            // Оновлюємо DOM обох контейнерів
+            this.activeContainer.innerHTML = this._buildOrdersHtml(activeList, false);
+            this.historyContainer.innerHTML = this._buildOrdersHtml(historyList, true);
 
-                const itemsHtml = (o.items || []).map(i => {
-                    const cur = i.currency || '₴';
-                    return `• ${i.name} (x${i.qty}) — ${i.price} ${cur}`;
-                }).join('<br>');
+            // Запускаємо перевірку ТТН (вона сама знайде потрібні id на екрані)
+            this.fetchLiveStatuses(activeList.concat(historyList));
 
-                return `
-                <div class="card" ${isBl || o.isUrgent ? `style="border: 2px solid ${isBl ? '#ef9a9a' : '#ffe0b2'};"` : ''}>
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <b style="font-size:15px; line-height: 1.4;">${isBl ? '<span style="color:red;">[ЧС]</span> ' : ''}${urgentHtml}${o.customerName || ''}</b>
-                        <div style="text-align:right; line-height:1.4; white-space: nowrap; margin-left: 5px;">${this._formatOrderSum(o)}</div>
-                    </div>
-                    <div style="font-size:12px; color:#888; margin-bottom:4px; margin-top:2px;">${dateStr}</div>
-                    <div style="font-size:12px; color:#666">${o.customerPhone || ''}</div>
-                    <div style="font-size:13px; margin:8px 0; line-height:1.7;">${itemsHtml}</div>
-                    ${o.comment ? `<div style="font-size:12px; color:#e65100; margin-bottom:5px; background:#fff3e0; padding:6px 8px; border-radius:6px;">💬 ${o.comment}</div>` : ''}
-
-                    <div style="font-size:12px; border-top:1px solid #eee; padding-top:8px; margin-top:8px; color:#444;">
-                        <b>${o.deliveryMethod === 'ukrposhta' ? '📫 Укрпошта' : '📦 Нова Пошта'}</b><br>
-                        ${o.city || '<span style="color:#bbb;">Адресу не вказано</span>'}
-                        ${o.deliveryMethod === 'ukrposhta' && o.index ? `<br>Індекс: <b>${o.index}</b>` : ''}
-                        ${o.branch ? `<br>${addrPrefix} <b>${o.branch}</b>` : ''}
-                    </div>
-
-                    ${o.ttn
-                        ? `<div class="status-box" style="background:#f4f9f4; border:1px solid #c8e6c9;">
-                               <div style="display:flex; justify-content:space-between; align-items:center;">
-                                   <div style="font-size:13px; font-weight:bold; word-break: break-all; color:#1976d2;">🔎 ТТН: ${o.ttn}</div>
-                                   <button class="btn-secondary btn-small" data-action="add-ttn" data-id="${o.id}" data-ttn="${o.ttn}" style="margin:0; padding:4px 8px; font-size:11px; flex-shrink:0; background:#fff; border:1px solid #ddd;">✏️ Змінити</button>
-                               </div>
-                               <div id="status-${o.id}">
-                                   ${o.trackingTimeline ? this._buildTrackingUI(o.trackingTimeline) : '<div style="font-size:12px; color:#888; margin-top:8px;">⏳ Завантаження статусу...</div>'}
-                               </div>
-                           </div>`
-                        : `<button class="btn-secondary btn-small" data-action="add-ttn" data-id="${o.id}" style="margin-top:10px; width:100%; padding:10px; border:1px dashed #ccc; background:#fafafa;">+ Додати ТТН</button>`
-                    }
-
-                    <div class="card-actions">
-                        ${this.currentTab === 'active'
-                            ? `<button class="btn-secondary btn-small" data-action="complete" data-id="${o.id}" style="background:#e8f5e9; color:#2e7d32; flex:1;">✅ Виконано</button>`
-                            : `<button class="btn-secondary btn-small" data-action="repeat" data-id="${o.id}" style="background:#e3f2fd; color:#1976d2; flex-shrink: 0;">🔄 Повторити</button>`
-                        }
-                        <button class="btn-secondary btn-small" data-action="edit" data-id="${o.id}" style="background:#fff3e0; color:#e65100;">✏️ Ред.</button>
-                        <button class="btn-secondary btn-small" data-action="delete" data-id="${o.id}" style="background:#ffebee; color:#d32f2f;">🗑️ Видалити</button>
-                    </div>
-                </div>`;
-            }).join('');
-
-            this.fetchLiveStatuses(list);
         } catch (error) {
             console.error("Помилка рендеру:", error);
-            this.container.innerHTML = `<div style="text-align:center; color:#d32f2f; padding:30px; grid-column: 1 / -1;">Помилка завантаження. Перевірте підключення.</div>`;
+            const errHtml = `<div style="text-align:center; color:#d32f2f; padding:30px; grid-column: 1 / -1;">Помилка завантаження. Перевірте підключення.</div>`;
+            this.activeContainer.innerHTML = errHtml;
+            this.historyContainer.innerHTML = errHtml;
         }
     }
 
@@ -551,7 +554,6 @@ export class OrderList {
         }
     }
 
-    // --- ЗБЕРЕЖЕННЯ ТА ВІДОБРАЖЕННЯ ДАНИХ ТРЕКІНГУ У БД ---
     async fetchLiveStatuses(orders) {
         let hasAutoCompleted = false;
 
@@ -560,7 +562,6 @@ export class OrderList {
             const el = document.getElementById(`status-${o.id}`);
             if (!el) continue;
 
-            // Якщо ми вже отримали посилку раніше, просто малюємо збережений таймлайн (економимо запити)
             if (o.trackingTimeline?.received && o.trackingTimeline?.completed) {
                 el.innerHTML = this._buildTrackingUI(o.trackingTimeline);
                 continue;
@@ -587,25 +588,21 @@ export class OrderList {
                         const statusStr = d.Status;
                         const statusCode = d.StatusCode;
 
-                        // Фіксуємо відправку
                         if (!timeline.dispatched && statusCode !== "1" && statusCode !== "2") {
                             timeline.dispatched = d.DateCreated || new Date().toLocaleString('uk-UA'); 
                             needsDbUpdate = true;
                         }
                         
-                        // Фіксуємо прибуття
                         if (!timeline.arrived && (statusCode === "7" || statusCode === "8")) {
                             timeline.arrived = new Date().toLocaleString('uk-UA'); 
                             needsDbUpdate = true;
                         }
                         
-                        // Фіксуємо отримання
                         if (statusCode === "9" || statusCode === "10" || statusCode === "11" || statusStr.toLowerCase().includes("одержано")) {
                             if (!timeline.received) timeline.received = d.RecipientDateTime || new Date().toLocaleString('uk-UA');
                             timeline.completed = true;
                             needsDbUpdate = true;
                             
-                            // АВТОМАТИЧНИЙ ПЕРЕХІД В ІСТОРІЮ
                             if (o.status !== 'history') { 
                                 await updateDoc(doc(this.core.db, "orders", o.id), { status: 'history' }); 
                                 hasAutoCompleted = true; 
@@ -618,7 +615,6 @@ export class OrderList {
                         }
                     }
                 } else {
-                    
                     const upToken = "e66c7553-9d16-3e74-b52b-45610665ed5b";
                     const targetUrl = `https://www.ukrposhta.ua/status-tracking/0.0.1/statuses?barcode=${o.ttn}`;
                     const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
@@ -631,27 +627,23 @@ export class OrderList {
                             const statusName = lastStatus.eventName || "В дорозі";
                             const sLower = statusName.toLowerCase();
 
-                            // Фіксуємо відправку (Укрпошта)
                             const dispatchEvent = data.find(e => e.eventName.toLowerCase().includes("прийняття"));
                             if (dispatchEvent && !timeline.dispatched) { 
                                 timeline.dispatched = new Date(dispatchEvent.date).toLocaleString('uk-UA'); 
                                 needsDbUpdate = true; 
                             }
 
-                            // Фіксуємо прибуття (Укрпошта)
                             const arriveEvent = data.find(e => e.eventName.toLowerCase().includes("надходження до об'єкту поштового зв'язку") && !e.eventName.toLowerCase().includes("сортувальн"));
                             if (arriveEvent && !timeline.arrived) { 
                                 timeline.arrived = new Date(arriveEvent.date).toLocaleString('uk-UA'); 
                                 needsDbUpdate = true; 
                             }
 
-                            // Фіксуємо отримання (Укрпошта)
                             if (sLower.includes("вручення") || sLower.includes("вручено") || sLower.includes("одержано")) {
                                 if (!timeline.received) timeline.received = new Date(lastStatus.date).toLocaleString('uk-UA');
                                 timeline.completed = true;
                                 needsDbUpdate = true;
                                 
-                                // АВТОМАТИЧНИЙ ПЕРЕХІД В ІСТОРІЮ
                                 if (o.status !== 'history') { 
                                     await updateDoc(doc(this.core.db, "orders", o.id), { status: 'history' }); 
                                     hasAutoCompleted = true; 
@@ -666,7 +658,6 @@ export class OrderList {
                     }
                 }
 
-                // Зберігаємо зміни в БД, якщо знайшли нову дату
                 if (needsDbUpdate) {
                     await updateDoc(doc(this.core.db, "orders", o.id), { trackingTimeline: timeline });
                 }
@@ -674,7 +665,6 @@ export class OrderList {
                 el.innerHTML = this._buildTrackingUI(timeline);
 
             } catch (e) {
-                // Якщо пошта видалила ТТН, дістаємо останню збережену копію з БД
                 if (timeline.currentStatus) {
                     el.innerHTML = this._buildTrackingUI(timeline) + `<div style="font-size:10px; color:#aaa; margin-top:4px; text-align:right;">(Збережена копія з БД)</div>`;
                 } else {
@@ -684,7 +674,6 @@ export class OrderList {
             }
         }
 
-        // Якщо хоча б одне замовлення перейшло в "Отримані", оновлюємо сторінку
-        if (hasAutoCompleted && this.currentTab === 'active') this.render();
+        if (hasAutoCompleted) this.render();
     }
 }
