@@ -4,18 +4,29 @@ import { setupPhoneMask, formatPhoneString } from "./Utils.js";
 export class OrderForm {
     constructor(core) {
         this.core = core;
-        this.modal = document.getElementById('orderModal');
+        // Підключаємо нову структуру шторки
+        this.sheet = document.getElementById('orderModal');
+        this.overlay = document.getElementById('orderModalOverlay');
+        this.header = document.getElementById('orderModalHeader');
+        this.dragHandle = document.getElementById('orderDragHandle');
         this.container = document.getElementById('itemsContainer');
         this.editingId = null;
+        
         this.bindEvents();
         this.setupAutocomplete();
+        this.setupSwipeLogic();
         setupPhoneMask('newPhone');
     }
 
     bindEvents() {
         document.getElementById('fabBtn').onclick = () => this.open();
-        document.getElementById('closeOrderBtn').onclick = () => this.modal.style.display = 'none';
-        document.getElementById('closeOrderTopBtn').onclick = () => this.modal.style.display = 'none'; // 👈 НОВАЯ СТРОЧКА
+        
+        // Кнопки повного закриття
+        const completelyClose = () => this.fullyClose();
+        document.getElementById('closeOrderBtn').onclick = completelyClose;
+        document.getElementById('closeOrderTopBtn').onclick = completelyClose;
+        this.overlay.onclick = completelyClose;
+
         document.getElementById('addItemBtn').onclick = () => this.addItemRow();
         document.getElementById('saveOrderBtn').onclick = () => this.save();
 
@@ -51,7 +62,104 @@ export class OrderForm {
                 document.querySelectorAll('.preset-suggestions').forEach(box => box.style.display = 'none');
             }
         });
+
+        // Клік по шапці розгортає згорнуте вікно
+        this.header.onclick = (e) => {
+            if (this.sheet.classList.contains('minimized') && !e.target.closest('button')) {
+                this.maximize();
+            }
+        };
     }
+
+    // --- ЛОГІКА АНІМАЦІЙ ШТОРКИ ---
+
+    maximize() {
+        this.sheet.classList.remove('minimized');
+        this.sheet.style.transform = 'translateY(0)';
+        this.overlay.style.display = 'block';
+        setTimeout(() => this.overlay.style.opacity = '1', 10);
+        this.overlay.style.pointerEvents = 'auto'; 
+    }
+
+    minimize() {
+        this.sheet.classList.add('minimized');
+        this.sheet.style.transform = 'translateY(calc(100% - 70px))';
+        this.overlay.style.opacity = '0';
+        this.overlay.style.pointerEvents = 'none'; // дозволяє клікати під фоном
+        setTimeout(() => {
+            if (this.sheet.classList.contains('minimized')) {
+                this.overlay.style.display = 'none';
+            }
+        }, 300);
+    }
+
+    fullyClose() {
+        this.sheet.classList.remove('minimized');
+        this.sheet.style.transform = 'translateY(100%)';
+        this.overlay.style.opacity = '0';
+        setTimeout(() => {
+            this.overlay.style.display = 'none';
+        }, 300);
+    }
+
+    setupSwipeLogic() {
+        let startY = 0;
+        let currentY = 0;
+        let isDragging = false;
+        let initialTransform = 0;
+
+        const handleTouchStart = (e) => {
+            if (this.sheet.classList.contains('minimized')) {
+                initialTransform = this.sheet.offsetHeight - 70;
+            } else {
+                initialTransform = 0;
+            }
+            startY = e.touches[0].clientY;
+            currentY = startY;
+            isDragging = true;
+            this.sheet.style.transition = 'none';
+        };
+
+        const handleTouchMove = (e) => {
+            if (!isDragging) return;
+            currentY = e.touches[0].clientY;
+            let deltaY = currentY - startY;
+            
+            let newY = initialTransform + deltaY;
+            if (newY < 0) newY = 0; // Не даємо тягнути вище екрану
+            
+            this.sheet.style.transform = `translateY(${newY}px)`;
+        };
+
+        const handleTouchEnd = (e) => {
+            if (!isDragging) return;
+            isDragging = false;
+            this.sheet.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+            
+            let deltaY = currentY - startY;
+            
+            if (this.sheet.classList.contains('minimized')) {
+                // Тягнули вгору зі згорнутого стану
+                if (deltaY < -30) this.maximize();
+                else this.minimize();
+            } else {
+                // Тягнули вниз з розгорнутого стану
+                if (deltaY > 50) this.minimize();
+                else this.maximize();
+            }
+        };
+
+        // Свайп працює і на сірій "ручці", і на всій шапці
+        this.dragHandle.addEventListener('touchstart', handleTouchStart, { passive: true });
+        this.dragHandle.addEventListener('touchmove', handleTouchMove, { passive: true });
+        this.dragHandle.addEventListener('touchend', handleTouchEnd);
+        
+        this.header.addEventListener('touchstart', handleTouchStart, { passive: true });
+        this.header.addEventListener('touchmove', handleTouchMove, { passive: true });
+        this.header.addEventListener('touchend', handleTouchEnd);
+    }
+
+    // ----------------------------------
 
     _cleanPhone(phone) {
         if (!phone) return '';
@@ -130,17 +238,14 @@ export class OrderForm {
                             const div = document.createElement('div');
                             div.className = 'suggestion-item';
                             
-                            // 1. Оновлені стилі для самої підказки (додаємо обводку для "свого")
                             div.style.padding = '10px 12px';
-                            if (isAlias) {
-                                div.style.paddingLeft = '25px';
-                            }
+                            if (isAlias) div.style.paddingLeft = '25px';
                             
                             if (isMyVariant) {
                                 div.style.background = '#f4fbf4';
-                                div.style.border = '2px solid #81c784'; // Чітка зелена обводка
+                                div.style.border = '2px solid #81c784'; 
                                 div.style.borderRadius = '8px';
-                                div.style.margin = '4px'; // Легкий відступ, щоб рамку було добре видно
+                                div.style.margin = '4px'; 
                             } else if (isAlias) {
                                 div.style.background = '#fafbfc';
                                 div.style.border = 'none';
@@ -155,11 +260,9 @@ export class OrderForm {
                             }
 
                             const prefix = isAlias && !isMyVariant ? '<span style="color:#ccc; margin-right:4px; flex-shrink: 0;">↳</span>' : '';
-                            // Мініатюрна бірка в кінці
                             const tag = isMyVariant ? '<span style="font-size:9px; color:#4caf50; background:#e8f5e9; border: 1px solid #81c784; padding:2px 4px; border-radius:12px; font-weight:bold; white-space:nowrap; flex-shrink:0;">ВАШ ЗАПИС</span>' : '';
                             const phoneColor = isAlias ? '#bbb' : '#666';
 
-                            // 2. Гнучкий дизайн: текст переноситься на нові рядки, якщо не влазить (flex-wrap: wrap)
                             div.innerHTML = `
                                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 6px;">
                                     <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; flex: 1;">
@@ -206,7 +309,7 @@ export class OrderForm {
 
     open(data = null, id = null) {
         this.editingId = id;
-        document.getElementById('orderModalTitle').innerText = id ? "Редагування замовлення" : "Нове замовлення";
+        document.getElementById('orderModalTitleText').innerText = id ? "Редагування замовлення" : "Нове замовлення";
         document.getElementById('blacklistWarning').style.display = 'none';
 
         document.getElementById('newIsUrgent').checked = data?.isUrgent || false;
@@ -239,7 +342,9 @@ export class OrderForm {
 
         if (data) this.core.blacklist.checkWarning(data.customerPhone);
         this.calcTotal();
-        this.modal.style.display = 'flex';
+        
+        // Відкриваємо шторку на повну
+        this.maximize();
     }
 
     addItemRow(name = "", qty = 1, price = "", currency = "₴") {
@@ -414,7 +519,10 @@ export class OrderForm {
             }
 
             await this.core.loadClients();
-            this.modal.style.display = 'none';
+            
+            // Після збереження повністю закриваємо шторку
+            this.fullyClose();
+            
             this.core.orderList.currentTab = 'active';
             this.core.orderList.updateTabUI();
             this.core.orderList.render();
