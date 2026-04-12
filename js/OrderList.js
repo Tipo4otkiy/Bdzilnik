@@ -3,7 +3,6 @@ import { collection, query, where, getDocs, doc, deleteDoc, updateDoc, getDoc } 
 export class OrderList {
     constructor(core) {
         this.core = core;
-        // Тепер у нас два незалежних контейнери
         this.activeContainer = document.getElementById('activeContent');
         this.historyContainer = document.getElementById('historyContent');
         
@@ -26,7 +25,7 @@ export class OrderList {
     bindEvents() {
         document.getElementById('universalSearch').addEventListener('input', (e) => {
             this.currentSearchText = e.target.value;
-            this.render(); // Оновлюємо обидва екрани одночасно
+            this.render();
         });
 
         const sortDropdown = document.getElementById('sortDropdown');
@@ -150,11 +149,11 @@ export class OrderList {
             }
         };
 
-        // Слухаємо кліки в обох контейнерах
         this.activeContainer.addEventListener('click', handleOrderActions);
         this.historyContainer.addEventListener('click', handleOrderActions);
         document.getElementById('deletedContent').addEventListener('click', handleOrderActions);
 
+        // ОНОВЛЕНА ЛОГІКА ХРЕСТИКА ДЛЯ ТТН
         const hideTtnModal = () => document.getElementById('ttnModal').style.display = 'none';
         document.getElementById('closeTtnBtn').onclick = hideTtnModal;
         const closeTtnTop = document.getElementById('closeTtnTopBtn');
@@ -173,7 +172,6 @@ export class OrderList {
         document.getElementById('convertStatBtn').addEventListener('click', () => this.convertAndSum());
     }
 
-    // Більше не потрібна функція, інтерфейсом керує index.html
     updateTabUI() {}
 
     _cleanPhone(phone) {
@@ -256,7 +254,6 @@ export class OrderList {
         return html;
     }
 
-    // НОВИЙ МЕТОД: Генерує HTML картки замовлення
     _buildOrdersHtml(list, isHistoryTab) {
         if (list.length === 0) {
             return `<div style="text-align:center; color:#999; padding: 40px 20px; grid-column: 1 / -1;">
@@ -320,7 +317,6 @@ export class OrderList {
         }).join('');
     }
 
-    // НОВИЙ РЕНДЕР: Заповнює обидва екрани одночасно
     async render() {
         try {
             let q;
@@ -336,21 +332,17 @@ export class OrderList {
             let list = [];
             snap.forEach(d => list.push({ id: d.id, ...d.data() }));
 
-            this.ordersData = list; // Зберігаємо загальну базу
+            this.ordersData = list; 
 
-            // Фільтруємо для обох вкладок
             let activeList = list.filter(o => o.status !== 'deleted' && o.status !== 'history');
             let historyList = list.filter(o => o.status === 'history');
 
-            // Застосовуємо пошук і сортування до обох списків
             activeList = this._applySortAndFilters(activeList, false);
             historyList = this._applySortAndFilters(historyList, false);
 
-            // Оновлюємо DOM обох контейнерів
             this.activeContainer.innerHTML = this._buildOrdersHtml(activeList, false);
             this.historyContainer.innerHTML = this._buildOrdersHtml(historyList, true);
 
-            // Запускаємо перевірку ТТН (вона сама знайде потрібні id на екрані)
             this.fetchLiveStatuses(activeList.concat(historyList));
 
         } catch (error) {
@@ -554,7 +546,7 @@ export class OrderList {
         } catch(e) {
             resultDiv.innerHTML = `<span style="color:#d32f2f;">Помилка отримання курсу. Перевірте інтернет.</span>`;
         } finally {
-            btn.innerText = '💱 Конвертувати та підсумувати'; btn.disabled = false;
+            btn.innerText = '💱 Конвертувати'; btn.disabled = false;
         }
     }
 
@@ -678,6 +670,6 @@ export class OrderList {
             }
         }
 
-        if (hasAutoCompleted) this.render();
+        if (hasAutoCompleted && this.currentTab === 'active') this.render();
     }
 }
