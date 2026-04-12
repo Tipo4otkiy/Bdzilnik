@@ -74,7 +74,12 @@ export class OrderForm {
                 const matches = this.core.clients.filter(c => {
                     if (field === 'phone') return this._cleanPhone(c.phone).includes(val);
                     
-                    const namesToSearch = c.knownNames || [c.name];
+                    let namesToSearch = [];
+                    if (c.knownNames && c.knownNames.length > 0) {
+                        namesToSearch = c.knownNames.map(v => typeof v === 'string' ? v : v.n);
+                    }
+                    if (c.name && !namesToSearch.includes(c.name)) namesToSearch.push(c.name);
+                    
                     return namesToSearch.some(n => (n || '').toLowerCase().includes(val));
                 }).slice(0, 5);
 
@@ -83,40 +88,93 @@ export class OrderForm {
                     matches.forEach(m => {
                         const isBl = this.core.blacklistData.some(b => b.cleanPhone === this._cleanPhone(m.phone));
                         
-                        // Збираємо всі імена в один масив
-                        let namesArray = [];
-                        if (m.knownNames && Array.isArray(m.knownNames)) {
-                            namesArray = [...m.knownNames];
-                        }
-                        if (m.name && !namesArray.includes(m.name)) {
-                            namesArray.push(m.name);
+                        let variants = m.knownNames || [];
+                        let parsedVariants = [];
+                        
+                        if (variants.length > 0) {
+                            if (typeof variants[0] === 'string') {
+                                parsedVariants = variants.map(v => ({ n: v, s: m.sellerId || 'legacy' }));
+                            } else {
+                                parsedVariants = [...variants];
+                            }
                         }
                         
-                        // Завжди ставимо актуальне (останнє) ім'я на перше місце
-                        namesArray = namesArray.filter(n => n && n !== m.name);
-                        if (m.name) namesArray.unshift(m.name);
+                        if (!parsedVariants.some(v => v.n === m.name) && m.name) {
+                            parsedVariants.unshift({ n: m.name, s: m.sellerId || 'legacy' });
+                        } else if (m.name) {
+                            const mainIdx = parsedVariants.findIndex(v => v.n === m.name);
+                            if (mainIdx > 0) {
+                                const mainVar = parsedVariants.splice(mainIdx, 1)[0];
+                                parsedVariants.unshift(mainVar);
+                            }
+                        }
 
-                        // Виводимо кожне ім'я
-                        namesArray.forEach((singleName, index) => {
-                            if (!singleName) return;
+                        let uniqueVariants = [];
+                        let seen = new Set();
+                        for (let v of parsedVariants) {
+                            let lower = (v.n || '').toLowerCase();
+                            if (!seen.has(lower)) {
+                                seen.add(lower);
+                                uniqueVariants.push(v);
+                            }
+                        }
+
+                        uniqueVariants.forEach((variant, index) => {
+                            if (!variant || !variant.n) return;
                             
+                            const singleName = variant.n;
+                            const isMyVariant = variant.s === this.core.currentUser.uid;
                             const isAlias = index > 0;
+                            
                             const div = document.createElement('div');
                             div.className = 'suggestion-item';
                             
+                            // 1. Оновлені стилі для самої підказки (додаємо обводку для "свого")
+                            div.style.padding = '10px 12px';
                             if (isAlias) {
                                 div.style.paddingLeft = '25px';
-                                div.style.borderTop = '1px dashed #eee';
+                            }
+                            
+                            if (isMyVariant) {
+                                div.style.background = '#f4fbf4';
+                                div.style.border = '2px solid #81c784'; // Чітка зелена обводка
+                                div.style.borderRadius = '8px';
+                                div.style.margin = '4px'; // Легкий відступ, щоб рамку було добре видно
+                            } else if (isAlias) {
                                 div.style.background = '#fafbfc';
+                                div.style.border = 'none';
+                                div.style.borderTop = '1px dashed #eee';
+                                div.style.borderRadius = '0';
+                                div.style.margin = '0';
+                            } else {
+                                div.style.background = 'white';
+                                div.style.border = 'none';
+                                div.style.borderRadius = '0';
+                                div.style.margin = '0';
                             }
 
-                            const prefix = isAlias ? '<span style="color:#ccc; margin-right:6px;">↳</span>' : '';
-                            const tag = isAlias ? '<span style="font-size:10px; color:#888; background:#e0e0e0; padding:2px 6px; border-radius:4px; margin-left:6px;">варіант</span>' : '';
+                            const prefix = isAlias && !isMyVariant ? '<span style="color:#ccc; margin-right:4px; flex-shrink: 0;">↳</span>' : '';
+                            // Мініатюрна бірка в кінці
+                            const tag = isMyVariant ? '<span style="font-size:9px; color:#4caf50; background:#e8f5e9; border: 1px solid #81c784; padding:2px 4px; border-radius:12px; font-weight:bold; white-space:nowrap; flex-shrink:0;">ВАШ ЗАПИС</span>' : '';
                             const phoneColor = isAlias ? '#bbb' : '#666';
 
-                            div.innerHTML = `${isBl && !isAlias ? '<span style="color:red; font-weight:bold;">[ЧС]</span> ' : ''}${prefix}<b style="color:${isAlias ? '#555' : '#000'}">${singleName}</b>${tag} <span style="color:${phoneColor}">(${m.phone})</span>`;
+                            // 2. Гнучкий дизайн: текст переноситься на нові рядки, якщо не влазить (flex-wrap: wrap)
+                            div.innerHTML = `
+                                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 6px;">
+                                    <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; flex: 1;">
+                                        ${isBl && !isAlias ? '<span style="color:red; font-weight:bold; flex-shrink: 0;">[ЧС]</span> ' : ''}
+                                        ${prefix}
+                                        <b style="color:${isAlias && !isMyVariant ? '#555' : '#000'}; word-break: break-word;">
+                                            ${singleName}
+                                        </b>
+                                        <span style="color:${phoneColor}; white-space: nowrap;">
+                                            (${m.phone})
+                                        </span>
+                                    </div>
+                                    ${tag}
+                                </div>
+                            `;
                             
-                            // ЗМІНЕНО НА onmousedown (вирішує баг з недоступністю вибору на телефонах)
                             div.onmousedown = (e) => { 
                                 e.preventDefault(); 
                                 const chosenClientData = { ...m, name: singleName };
@@ -132,7 +190,6 @@ export class OrderForm {
                 }
             });
             
-            // Ховаємо меню при кліку поза ним
             document.addEventListener('click', (e) => { if (e.target !== input) box.style.display = 'none'; });
         };
 
@@ -168,7 +225,7 @@ export class OrderForm {
         const addrType = data?.addressType || 'branch';
         const addrRadio = document.querySelector(`input[name="addressType"][value="${addrType}"]`);
         if (addrRadio) addrRadio.checked = true;
-        document.getElementById('newBranch').placeholder = addrType === 'branch' ? "Номер або назва відділення (необов'язково)" : "Назва вулиці, будинок, квартира (необов'язково)";
+        document.getElementById('newBranch').placeholder = addrType === 'branch' ? "Номер або назва відділення" : "Назва вулиці, будинок, квартира";
 
         this.core.location.currentCityRef = "";
         this.container.innerHTML = '<strong>Товари:</strong>';
@@ -321,26 +378,37 @@ export class OrderForm {
                 await addDoc(collection(this.core.db, "orders"), orderData);
             }
 
-            // БРОНЬОВАНЕ ЗБЕРЕЖЕННЯ В БД (ЗБИРАЄМО ВСІ ІМЕНА)
             const cleanPhone = this._cleanPhone(phone);
             if (cleanPhone.length === 10) {
                 const clientRef = doc(this.core.db, "clients", cleanPhone);
                 const clientSnap = await getDoc(clientRef);
                 
-                let existingNames = [];
+                let variants = [];
+                let ownerId = this.core.currentUser.uid;
+                
                 if (clientSnap.exists()) {
                     const data = clientSnap.data();
-                    if (data.knownNames) existingNames = data.knownNames;
-                    else if (data.name) existingNames = [data.name];
+                    variants = data.knownNames || [];
+                    if (data.sellerId) ownerId = data.sellerId;
+                    
+                    if (variants.length > 0 && typeof variants[0] === 'string') {
+                        variants = variants.map(oldName => ({ n: oldName, s: data.sellerId || 'legacy' }));
+                    }
                 }
 
-                // Створюємо унікальний набір імен, додаючи нове
-                const namesToSave = Array.from(new Set([...existingNames, name])).filter(Boolean);
+                const myVariantIndex = variants.findIndex(v => v.s === this.core.currentUser.uid);
+
+                if (myVariantIndex !== -1) {
+                    variants[myVariantIndex].n = name; 
+                } else {
+                    variants.push({ n: name, s: this.core.currentUser.uid });
+                }
 
                 await setDoc(clientRef, { 
-                    name: name, // Останнє актуальне
+                    name: name,
                     phone: phone, 
-                    knownNames: namesToSave 
+                    knownNames: variants,
+                    sellerId: ownerId
                 }, { merge: true });
             }
 

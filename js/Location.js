@@ -27,7 +27,7 @@ export class LocationManager {
         document.querySelectorAll('input[name="addressType"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
                 const isBranch = e.target.value === 'branch';
-                document.getElementById('newBranch').placeholder = isBranch ? "Номер або назва відділення (необов'язково)" : "Назва вулиці, будинок, квартира (необов'язково)";
+                document.getElementById('newBranch').placeholder = isBranch ? "Номер або назва відділення" : "Назва вулиці, будинок, квартира";
                 document.getElementById('branchSuggestions').style.display = 'none';
             });
         });

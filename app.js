@@ -7,6 +7,7 @@ import { LocationManager } from './js/Location.js';
 import { OrderForm } from './js/OrderForm.js';
 import { OrderList } from './js/OrderList.js';
 import { AdminManager } from './js/Admin.js';
+import { ClientManager } from './js/Clients.js';
 
 class CRMApp {
     constructor() {
@@ -26,48 +27,39 @@ class CRMApp {
         this.orderForm = new OrderForm(this);
         this.orderList = new OrderList(this);
         this.admin = new AdminManager(this); 
+        this.clientManager = new ClientManager(this);
         
         this.authManager = new AuthManager(this);
 
-        // Активуємо наш фікс для клавіатури при старті
         this.setupMobileKeyboardFix();
         this.setupIosPrompt();
     }
 
-    // НОВИЙ МЕТОД ДЛЯ ПЛАВНОГО ПІДЙОМУ ЕКРАНА
     setupMobileKeyboardFix() {
         document.addEventListener('focusin', (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-                // Чекаємо 300 мілісекунд, поки анімація клавіатури завершиться
                 setTimeout(() => {
-                    e.target.scrollIntoView({ 
-                        behavior: 'smooth', 
-                        block: 'center' // Прокручує так, щоб поле було по центру екрана
-                    });
+                    e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }, 300); 
             }
         });
     }
-    // ДЕТЕКТОР iPHONE ДЛЯ ПІДКАЗКИ ВСТАНОВЛЕННЯ
+
     setupIosPrompt() {
         const isIos = () => {
             const userAgent = window.navigator.userAgent.toLowerCase();
             return /iphone|ipad|ipod/.test(userAgent);
         };
 
-        // Перевіряємо, чи додаток ВЖЕ встановлено (працює в standalone режимі)
         const isStandalone = ('standalone' in window.navigator) && (window.navigator.standalone);
 
-        // Якщо це iOS, додаток ще не встановлено, і користувач ще не закривав цю підказку
         if (isIos() && !isStandalone && !localStorage.getItem('iosPromptDismissed')) {
             const prompt = document.getElementById('iosInstallPrompt');
             if (prompt) {
-                // Показуємо з невеличкою затримкою для краси
                 setTimeout(() => prompt.style.display = 'block', 2000);
                 
                 document.getElementById('closeIosPrompt').addEventListener('click', () => {
                     prompt.style.display = 'none';
-                    // Запам'ятовуємо, що користувач закрив підказку, щоб не дратувати його знову
                     localStorage.setItem('iosPromptDismissed', 'true');
                 });
             }
@@ -91,7 +83,8 @@ class CRMApp {
             this.clients.push({
                 phone: data.phone,
                 name: data.name,
-                knownNames: data.knownNames || [] // 👈 ДОДАЙ ЦЕЙ РЯДОК
+                knownNames: data.knownNames || [],
+                sellerId: data.sellerId || null
             });
         });
     }
