@@ -15,6 +15,7 @@ export class OrderForm {
     bindEvents() {
         document.getElementById('fabBtn').onclick = () => this.open();
         document.getElementById('closeOrderBtn').onclick = () => this.modal.style.display = 'none';
+        document.getElementById('closeOrderTopBtn').onclick = () => this.modal.style.display = 'none'; // 👈 НОВАЯ СТРОЧКА
         document.getElementById('addItemBtn').onclick = () => this.addItemRow();
         document.getElementById('saveOrderBtn').onclick = () => this.save();
 

@@ -333,7 +333,11 @@
 
 <div id="orderModal" class="modal">
     <div class="modal-content" style="padding-bottom: 50px;">
-        <h3 id="orderModalTitle" style="margin-top:0; color:#333;">Нове замовлення</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
+            <h3 id="orderModalTitle" style="margin: 0; color: #333;">Нове замовлення</h3>
+            <button id="closeOrderTopBtn" style="background: transparent; border: none; color: #888; font-size: 22px; cursor: pointer; padding: 0 5px; margin: 0; width: auto; box-shadow: none;">✕</button>
+        </div>
+        
         <div id="blacklistWarning"></div>
         <div autocomplete="off">
             
