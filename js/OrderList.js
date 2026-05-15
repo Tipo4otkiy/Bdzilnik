@@ -611,72 +611,51 @@ export class OrderList {
                         }
                     }
                 } else {
-                    // Укрпошта: використовуємо Cloudflare Worker як CORS-проксі
-                    // Worker передає Authorization хедер і повертає дані напряму
-                    const upToken = "e66c7553-9d16-3e74-b52b-45610665ed5b";
-                    const workerUrl = `https://ukrposhta-proxy.beecrm.workers.dev/?barcode=${o.ttn}`;
+                    const cleanTtn = o.ttn.replace(/\s+/g, '');
+                    const workerUrl = `https://ukrposhta-proxy.glebbilouss.workers.dev/?barcode=${cleanTtn}`;
                     
-                    // Fallback: allorigins /get повертає { contents: "..." } з текстом відповіді
-                    const fallbackUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(`https://www.ukrposhta.ua/status-tracking/0.0.1/statuses?barcode=${o.ttn}&token=${upToken}`)}`;
-
-                    let data = null;
-
-                    // Спроба 1: Worker (якщо налаштований)
                     try {
-                        const res = await fetch(workerUrl, { signal: AbortSignal.timeout(5000) });
-                        if (res.ok) {
-                            const json = await res.json();
-                            if (Array.isArray(json)) data = json;
+                        const res = await fetch(workerUrl, { signal: AbortSignal.timeout(8000) });
+                        if (!res.ok) throw new Error("Worker повернув помилку");
+                        
+                        const data = await res.json();
+                        
+                        // РОЗУМНИЙ ПАРСЕР: Витягуємо масив, як би Укрпошта його не запакувала
+                        let statusArray = [];
+                        if (Array.isArray(data)) {
+                            statusArray = data;
+                        } else if (data && data.statuses && Array.isArray(data.statuses)) {
+                            statusArray = data.statuses;
+                        } else if (data && data.data && Array.isArray(data.data)) {
+                            statusArray = data.data;
+                        } else if (data && typeof data === 'object' && data.barcode) {
+                            statusArray = [data]; // Якщо повернувся лише один об'єкт статусу
+                        } else {
+                            throw new Error(data.error || "Невірний формат даних від сервера");
                         }
-                    } catch(_) {}
 
-                    // Спроба 2: allorigins /get — повертає contents як рядок
-                    if (data === null) {
-                        try {
-                            const res = await fetch(fallbackUrl, { signal: AbortSignal.timeout(8000) });
-                            if (res.ok) {
-                                const wrapper = await res.json();
-                                if (wrapper.contents) {
-                                    const inner = JSON.parse(wrapper.contents);
-                                    if (Array.isArray(inner)) data = inner;
-                                    else if (inner?.statuses) data = inner.statuses;
-                                }
-                            }
-                        } catch(_) {}
-                    }
-
-                    // Спроба 3: corsproxy.io
-                    if (data === null) {
-                        try {
-                            const res = await fetch(
-                                `https://corsproxy.io/?${encodeURIComponent(`https://www.ukrposhta.ua/status-tracking/0.0.1/statuses?barcode=${o.ttn}`)}`,
-                                { headers: { 'Authorization': `Bearer ${upToken}`, 'Accept': 'application/json' }, signal: AbortSignal.timeout(8000) }
-                            );
-                            if (res.ok) {
-                                const text = await res.text();
-                                const parsed = JSON.parse(text);
-                                if (Array.isArray(parsed)) data = parsed;
-                            }
-                        } catch(_) {}
-                    }
-
-                    if (data !== null) {
-                        if (Array.isArray(data) && data.length > 0) {
-                            const lastStatus = data[data.length - 1];
+                        if (statusArray.length > 0) {
+                            const lastStatus = statusArray[statusArray.length - 1];
                             const statusName = lastStatus.eventName || lastStatus.name || "В дорозі";
                             const sLower = statusName.toLowerCase();
+                            
                             const getDate = (ev) => ev.date || ev.eventDate || ev.timestamp || null;
 
-                            const dispatchEvent = data.find(e => (e.eventName || e.name || '').toLowerCase().includes("прийнят"));
+                            // 1. Шукаємо "Прийнято"
+                            const dispatchEvent = statusArray.find(e => {
+                                const n = (e.eventName || e.name || '').toLowerCase();
+                                return n.includes("прийнят") || n.includes("відправлення") || n.includes("accept");
+                            });
                             if (dispatchEvent && !timeline.dispatched) {
                                 const d = getDate(dispatchEvent);
                                 timeline.dispatched = d ? new Date(d).toLocaleString('uk-UA') : new Date().toLocaleString('uk-UA');
                                 needsDbUpdate = true;
                             }
 
-                            const arriveEvent = data.find(e => {
+                            // 2. Шукаємо "Прибуло у відділення"
+                            const arriveEvent = statusArray.find(e => {
                                 const n = (e.eventName || e.name || '').toLowerCase();
-                                return n.includes("надходження") && !n.includes("сортувальн");
+                                return (n.includes("надходження") || n.includes("прибуло") || n.includes("доставлено") || n.includes("arriv")) && !n.includes("сортувальн");
                             });
                             if (arriveEvent && !timeline.arrived) {
                                 const d = getDate(arriveEvent);
@@ -684,13 +663,15 @@ export class OrderList {
                                 needsDbUpdate = true;
                             }
 
-                            if (sLower.includes("вручен") || sLower.includes("одержано")) {
+                            // 3. Шукаємо "Вручено Одержувачу"
+                            if (sLower.includes("вручен") || sLower.includes("одержано") || sLower.includes("отримано") || sLower.includes("deliver")) {
                                 if (!timeline.received) {
                                     const d = getDate(lastStatus);
                                     timeline.received = d ? new Date(d).toLocaleString('uk-UA') : new Date().toLocaleString('uk-UA');
                                 }
                                 timeline.completed = true;
                                 needsDbUpdate = true;
+                                
                                 if (o.status !== 'history') {
                                     await updateDoc(doc(this.core.db, "orders", o.id), { status: 'history' });
                                     hasAutoCompleted = true;
@@ -702,15 +683,16 @@ export class OrderList {
                                 needsDbUpdate = true;
                             }
                         } else {
+                            // Ось тепер, якщо масив РЕАЛЬНО порожній — ставимо "Очікує"
                             if (timeline.currentStatus !== "Очікує відправлення") {
                                 timeline.currentStatus = "Очікує відправлення";
                                 needsDbUpdate = true;
                             }
                         }
-                    } else {
-                        throw new Error("Не вдалось отримати статус Укрпошти");
+                    } catch (err) {
+                        throw err;
                     }
-                } // Закриття else для Укрпошти
+                } // Закрытие else для Укрпочты
 
                 if (needsDbUpdate) {
                     await updateDoc(doc(this.core.db, "orders", o.id), { trackingTimeline: timeline });
