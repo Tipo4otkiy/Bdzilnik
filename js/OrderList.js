@@ -611,48 +611,106 @@ export class OrderList {
                         }
                     }
                 } else {
+                    // Укрпошта: використовуємо Cloudflare Worker як CORS-проксі
+                    // Worker передає Authorization хедер і повертає дані напряму
                     const upToken = "e66c7553-9d16-3e74-b52b-45610665ed5b";
-                    const targetUrl = `https://www.ukrposhta.ua/status-tracking/0.0.1/statuses?barcode=${o.ttn}`;
-                    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
-                    const res = await fetch(proxyUrl, { headers: { 'Accept': 'application/json', 'Authorization': `Bearer ${upToken}` } });
+                    const workerUrl = `https://ukrposhta-proxy.beecrm.workers.dev/?barcode=${o.ttn}`;
+                    
+                    // Fallback: allorigins /get повертає { contents: "..." } з текстом відповіді
+                    const fallbackUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(`https://www.ukrposhta.ua/status-tracking/0.0.1/statuses?barcode=${o.ttn}&token=${upToken}`)}`;
 
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data && data.length > 0) {
-                            const lastStatus = data[data.length - 1];
-                            const statusName = lastStatus.eventName || "В дорозі";
-                            const sLower = statusName.toLowerCase();
+                    let data = null;
 
-                            const dispatchEvent = data.find(e => e.eventName.toLowerCase().includes("прийняття"));
-                            if (dispatchEvent && !timeline.dispatched) { 
-                                timeline.dispatched = new Date(dispatchEvent.date).toLocaleString('uk-UA'); 
-                                needsDbUpdate = true; 
-                            }
+                    // Спроба 1: Worker (якщо налаштований)
+                    try {
+                        const res = await fetch(workerUrl, { signal: AbortSignal.timeout(5000) });
+                        if (res.ok) {
+                            const json = await res.json();
+                            if (Array.isArray(json)) data = json;
+                        }
+                    } catch(_) {}
 
-                            const arriveEvent = data.find(e => e.eventName.toLowerCase().includes("надходження до об'єкту поштового зв'язку") && !e.eventName.toLowerCase().includes("сортувальн"));
-                            if (arriveEvent && !timeline.arrived) { 
-                                timeline.arrived = new Date(arriveEvent.date).toLocaleString('uk-UA'); 
-                                needsDbUpdate = true; 
-                            }
-
-                            if (sLower.includes("вручення") || sLower.includes("вручено") || sLower.includes("одержано")) {
-                                if (!timeline.received) timeline.received = new Date(lastStatus.date).toLocaleString('uk-UA');
-                                timeline.completed = true;
-                                needsDbUpdate = true;
-                                
-                                if (o.status !== 'history') { 
-                                    await updateDoc(doc(this.core.db, "orders", o.id), { status: 'history' }); 
-                                    hasAutoCompleted = true; 
+                    // Спроба 2: allorigins /get — повертає contents як рядок
+                    if (data === null) {
+                        try {
+                            const res = await fetch(fallbackUrl, { signal: AbortSignal.timeout(8000) });
+                            if (res.ok) {
+                                const wrapper = await res.json();
+                                if (wrapper.contents) {
+                                    const inner = JSON.parse(wrapper.contents);
+                                    if (Array.isArray(inner)) data = inner;
+                                    else if (inner?.statuses) data = inner.statuses;
                                 }
                             }
-                            
+                        } catch(_) {}
+                    }
+
+                    // Спроба 3: corsproxy.io
+                    if (data === null) {
+                        try {
+                            const res = await fetch(
+                                `https://corsproxy.io/?${encodeURIComponent(`https://www.ukrposhta.ua/status-tracking/0.0.1/statuses?barcode=${o.ttn}`)}`,
+                                { headers: { 'Authorization': `Bearer ${upToken}`, 'Accept': 'application/json' }, signal: AbortSignal.timeout(8000) }
+                            );
+                            if (res.ok) {
+                                const text = await res.text();
+                                const parsed = JSON.parse(text);
+                                if (Array.isArray(parsed)) data = parsed;
+                            }
+                        } catch(_) {}
+                    }
+
+                    if (data !== null) {
+                        if (Array.isArray(data) && data.length > 0) {
+                            const lastStatus = data[data.length - 1];
+                            const statusName = lastStatus.eventName || lastStatus.name || "В дорозі";
+                            const sLower = statusName.toLowerCase();
+                            const getDate = (ev) => ev.date || ev.eventDate || ev.timestamp || null;
+
+                            const dispatchEvent = data.find(e => (e.eventName || e.name || '').toLowerCase().includes("прийнят"));
+                            if (dispatchEvent && !timeline.dispatched) {
+                                const d = getDate(dispatchEvent);
+                                timeline.dispatched = d ? new Date(d).toLocaleString('uk-UA') : new Date().toLocaleString('uk-UA');
+                                needsDbUpdate = true;
+                            }
+
+                            const arriveEvent = data.find(e => {
+                                const n = (e.eventName || e.name || '').toLowerCase();
+                                return n.includes("надходження") && !n.includes("сортувальн");
+                            });
+                            if (arriveEvent && !timeline.arrived) {
+                                const d = getDate(arriveEvent);
+                                timeline.arrived = d ? new Date(d).toLocaleString('uk-UA') : new Date().toLocaleString('uk-UA');
+                                needsDbUpdate = true;
+                            }
+
+                            if (sLower.includes("вручен") || sLower.includes("одержано")) {
+                                if (!timeline.received) {
+                                    const d = getDate(lastStatus);
+                                    timeline.received = d ? new Date(d).toLocaleString('uk-UA') : new Date().toLocaleString('uk-UA');
+                                }
+                                timeline.completed = true;
+                                needsDbUpdate = true;
+                                if (o.status !== 'history') {
+                                    await updateDoc(doc(this.core.db, "orders", o.id), { status: 'history' });
+                                    hasAutoCompleted = true;
+                                }
+                            }
+
                             if (timeline.currentStatus !== statusName) {
                                 timeline.currentStatus = statusName;
                                 needsDbUpdate = true;
                             }
+                        } else {
+                            if (timeline.currentStatus !== "Очікує відправлення") {
+                                timeline.currentStatus = "Очікує відправлення";
+                                needsDbUpdate = true;
+                            }
                         }
+                    } else {
+                        throw new Error("Не вдалось отримати статус Укрпошти");
                     }
-                }
+                } // Закриття else для Укрпошти
 
                 if (needsDbUpdate) {
                     await updateDoc(doc(this.core.db, "orders", o.id), { trackingTimeline: timeline });
@@ -661,11 +719,17 @@ export class OrderList {
                 el.innerHTML = this._buildTrackingUI(timeline);
 
             } catch (e) {
+                // Малюємо красивий блок ЗАМІСТЬ голої лінки, якщо сталась критична помилка
                 if (timeline.currentStatus) {
-                    el.innerHTML = this._buildTrackingUI(timeline) + `<div style="font-size:10px; color:#aaa; margin-top:4px; text-align:right;">(Збережена копія з БД)</div>`;
+                    el.innerHTML = this._buildTrackingUI(timeline) + `<div style="font-size:10px; color:#aaa; margin-top:4px; text-align:right;">(Офлайн копія)</div>`;
                 } else {
                     const link = isNovaPoshta ? `https://tracking.novaposhta.ua/#/uk/?en=${o.ttn}` : `https://track.ukrposhta.ua/tracking_UA.html?barcode=${o.ttn}`;
-                    el.innerHTML = `<a href="${link}" target="_blank" style="color:#1976d2; font-weight:bold; text-decoration:none;">🔗 Перевірити на сайті ↗</a>`;
+                    let html = `<div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #c8e6c9;">`;
+                    html += `<div style="font-weight:bold; font-size:13px; color:#f57f17; margin-bottom: 6px;">🚚 Інформація оновлюється...</div>`;
+                    html += `<div style="font-size: 12px; color: #555; margin-bottom: 8px;">Посилка ще не відправлена, або сервер пошти не відповідає.</div>`;
+                    html += `<a href="${link}" target="_blank" style="font-size: 12px; color:#1976d2; font-weight:bold; text-decoration:none;">🔗 Перевірити власноруч на сайті ↗</a>`;
+                    html += `</div>`;
+                    el.innerHTML = html;
                 }
             }
         }
