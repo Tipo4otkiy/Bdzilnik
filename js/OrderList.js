@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, doc, deleteDoc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { collection, query, where, getDocs, doc, deleteDoc, updateDoc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 export class OrderList {
     constructor(core) {
@@ -13,6 +13,7 @@ export class OrderList {
         this.sortField = 'date';
         this.sortOrder = 'desc';
         this.showUrgent = true;
+        this.showCancelled = true;
 
         this.deletedSearchText = '';
         this.deletedSortField = 'date';
@@ -51,6 +52,10 @@ export class OrderList {
         document.getElementById('showUrgent').addEventListener('change', (e) => {
             this.showUrgent = e.target.checked;
             this.render();
+        });
+        document.getElementById('showCancelled').addEventListener('change', (e) => {
+        this.showCancelled = e.target.checked;
+        this.render();
         });
 
         document.getElementById('deletedSearch').addEventListener('input', (e) => {
@@ -147,6 +152,56 @@ export class OrderList {
                     this.renderDeleted();
                 }
             }
+
+           if (action === 'cancel') {
+
+                if (confirm("Дійсно скасувати замовлення?")) {
+                    // Знаходимо поточне замовлення до зміни статусу
+                    const order = this.ordersData.find(o => o.id === id);
+                    
+                    // Оновлюємо статус в базі
+                    await updateDoc(doc(this.core.db, "orders", id), { status: 'cancelled' });
+
+                    if (order) {
+                        const phone = order.customerPhone || '';
+                        const cleanPhone = this._cleanPhone(phone);
+                        
+                        // Рахуємо всі скасовані замовлення цього клієнта (включаючи те, щойно скасували)
+                        const cancelledCount = this.ordersData.filter(o => {
+                            const isSamePhone = this._cleanPhone(o.customerPhone) === cleanPhone;
+                            const isCancelled = o.status === 'cancelled' || o.id === id;
+                            return isSamePhone && isCancelled;
+                        }).length;
+
+                        // Якщо це друге (або більше) скасування — пропонуємо ЧС
+                        if (cancelledCount >= 2) {
+                            if (confirm(`⚠️ Увага! Клієнт ${order.customerName || ''} скасовує замовлення вже ${cancelledCount}-й раз!\n\nДодати його до Чорного списку?`)) {
+                                const name = order.customerName || 'Невідомий';
+
+                                if (cleanPhone.length === 10) {
+                                    await setDoc(doc(this.core.db, "blacklist", cleanPhone), {
+                                        phone: phone,
+                                        cleanPhone: cleanPhone,
+                                        name: name,
+                                        reason: "Скасував замовлення, будьте уважні",
+                                        addedBy: this.core.currentUser.uid,
+                                        addedByName: this.core.userName || this.core.currentUser.email.split('@')[0],
+                                        createdAt: Date.now()
+                                    });
+
+                                    await this.core.blacklist.load();
+                                    alert("Клієнта додано до Чорного списку.");
+                                } else {
+                                    alert("Не вдалося визначити коректний номер телефону для ЧС.");
+                                }
+                            }
+                        }
+                    }
+
+                    this.render();
+                }
+            }
+            
         };
 
         this.activeContainer.addEventListener('click', handleOrderActions);
@@ -210,7 +265,11 @@ export class OrderList {
         }
         
         if (!showUrgent) {
-            list = list.filter(o => !o.isUrgent);
+        list = list.filter(o => !o.isUrgent);
+        }
+
+        if (!isDeleted && !this.showCancelled) {
+            list = list.filter(o => o.status !== 'cancelled');
         }
 
         list.sort((a, b) => {
@@ -264,10 +323,18 @@ export class OrderList {
 
         return list.map(o => {
             const isBl = this._isBlacklisted(o.customerPhone);
+            const isCancelled = o.status === 'cancelled'; // Перевірка на скасований статус
             const addrPrefix = o.addressType === 'street' ? '🛣️ Вулиця:' : '🏢 Відділення:';
             const dateStr = o.createdAt ? new Date(o.createdAt).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
             
+            const cancelHtml = isCancelled ? '<span style="background: #e0e0e0; color: #616161; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-right: 5px; vertical-align: middle;">🚫 Скасовано</span>' : '';
             const urgentHtml = o.isUrgent ? '<span style="background: #ffe0b2; color: #e65100; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-right: 5px; vertical-align: middle;">🔥 Терміново</span>' : '';
+
+            // Стилі для самої картки
+            let cardStyle = '';
+            if (isCancelled) cardStyle = 'opacity: 0.75; filter: grayscale(0.7); background: #f9f9f9; border: 2px solid #e0e0e0;';
+            else if (isBl) cardStyle = 'border: 2px solid #ef9a9a;';
+            else if (o.isUrgent) cardStyle = 'border: 2px solid #ffe0b2;';
 
             const itemsHtml = (o.items || []).map(i => {
                 const cur = i.currency || '₴';
@@ -275,9 +342,9 @@ export class OrderList {
             }).join('<br>');
 
             return `
-            <div class="card" ${isBl || o.isUrgent ? `style="border: 2px solid ${isBl ? '#ef9a9a' : '#ffe0b2'};"` : ''}>
+            <div class="card" ${cardStyle ? `style="${cardStyle}"` : ''}>
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                    <b style="font-size:15px; line-height: 1.4;">${isBl ? '<span style="color:red;">[ЧС]</span> ' : ''}${urgentHtml}${o.customerName || ''}</b>
+                    <b style="font-size:15px; line-height: 1.4;">${isBl ? '<span style="color:red;">[ЧС]</span> ' : ''}${cancelHtml}${urgentHtml}${o.customerName || ''}</b>
                     <div style="text-align:right; line-height:1.4; white-space: nowrap; margin-left: 5px;">${this._formatOrderSum(o)}</div>
                 </div>
                 <div style="font-size:12px; color:#888; margin-bottom:4px; margin-top:2px;">${dateStr}</div>
@@ -307,7 +374,8 @@ export class OrderList {
 
                 <div class="card-actions">
                     ${!isHistoryTab
-                        ? `<button class="btn-secondary btn-small" data-action="complete" data-id="${o.id}" style="background:#e8f5e9; color:#2e7d32; flex:1;">✅ Виконано</button>`
+                        ? `<button class="btn-secondary btn-small" data-action="complete" data-id="${o.id}" style="background:#e8f5e9; color:#2e7d32; flex:1;">✅ Виконано</button>
+                           <button class="btn-secondary btn-small" data-action="cancel" data-id="${o.id}" style="background:#f5f5f5; color:#757575; flex:1; border: 1px solid #e0e0e0;">🚫 Скасувати</button>`
                         : `<button class="btn-secondary btn-small" data-action="repeat" data-id="${o.id}" style="background:#e3f2fd; color:#1976d2; flex-shrink: 0;">🔄 Повторити</button>`
                     }
                     <button class="btn-secondary btn-small" data-action="edit" data-id="${o.id}" style="background:#fff3e0; color:#e65100;">✏️ Ред.</button>
@@ -334,8 +402,8 @@ export class OrderList {
 
             this.ordersData = list; 
 
-            let activeList = list.filter(o => o.status !== 'deleted' && o.status !== 'history');
-            let historyList = list.filter(o => o.status === 'history');
+            let activeList = list.filter(o => o.status !== 'deleted' && o.status !== 'history' && o.status !== 'cancelled');
+            let historyList = list.filter(o => o.status === 'history' || o.status === 'cancelled');
 
             activeList = this._applySortAndFilters(activeList, false);
             historyList = this._applySortAndFilters(historyList, false);
@@ -451,7 +519,8 @@ export class OrderList {
     }
 
     calculateAnalytics() {
-        const filtered = this._filterByDate(this.ordersData);
+        const completedOrders = this.ordersData.filter(o => o.status === 'history');
+        const filtered = this._filterByDate(completedOrders);   
         const resultDiv = document.getElementById('statResult');
 
         if (filtered.length === 0) {
@@ -510,7 +579,8 @@ export class OrderList {
         resultDiv.innerHTML = '<span style="color:#888;">Завантажуємо курс...</span>';
 
         try {
-            const filtered = this._filterByDate(this.ordersData);
+            const completedOrders = this.ordersData.filter(o => o.status === 'history');
+            const filtered = this._filterByDate(completedOrders);
             if (filtered.length === 0) {
                 resultDiv.innerHTML = "<span style='color:#888;'>Немає замовлень за цей період.</span>";
                 return;
